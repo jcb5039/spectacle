@@ -68,7 +68,11 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
         return;
       }
       await UserService.instance.saveUser(
-        data.toAppUser(id: userId, status: VerificationStatus.verified),
+        data.toAppUser(
+          id: userId,
+          status: VerificationStatus.verified,
+          method: VerificationMethod.schoolEmail,
+        ),
       );
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -80,7 +84,11 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
     }
 
     await UserService.instance.saveUser(
-      data.toAppUser(id: userId, status: VerificationStatus.pending),
+      data.toAppUser(
+        id: userId,
+        status: VerificationStatus.pending,
+        method: VerificationMethod.certificate,
+      ),
     );
     final certificate = _certificate;
     if (certificate != null) {

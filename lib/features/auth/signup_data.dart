@@ -15,7 +15,12 @@ class SignUpData {
 
   bool get isEmployee => memberType == MemberType.employee;
 
-  AppUser toAppUser({required String id, required VerificationStatus status}) {
+  AppUser toAppUser({
+    required String id,
+    required VerificationStatus status,
+    required VerificationMethod method,
+  }) {
+    final now = DateTime.now();
     return AppUser(
       id: id,
       email: email ?? '',
@@ -27,7 +32,9 @@ class SignUpData {
       jobGroup: isEmployee ? jobGroup : null,
       company: isEmployee ? company : null,
       verificationStatus: status,
-      createdAt: DateTime.now(),
+      verificationMethod: method,
+      verifiedAt: status == VerificationStatus.verified ? now : null,
+      createdAt: now,
     );
   }
 }

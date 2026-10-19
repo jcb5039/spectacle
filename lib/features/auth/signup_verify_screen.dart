@@ -52,7 +52,11 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
     final data = widget.data..email = _emailController.text.trim();
     final userId = AuthService.instance.currentUserId ?? 'local-user';
     await UserService.instance.saveUser(
-      data.toAppUser(id: userId, status: VerificationStatus.pending),
+      data.toAppUser(
+        id: userId,
+        status: VerificationStatus.pending,
+        method: VerificationMethod.certificate,
+      ),
     );
     final certificate = _certificate;
     if (certificate != null) {

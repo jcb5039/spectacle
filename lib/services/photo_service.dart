@@ -7,7 +7,7 @@ enum PhotoSource { camera, gallery }
 
 // Firebase 연결 전까지는 FakePhotoService(가짜)가 동작한다.
 // 연결할 때 image_picker로 사진을 고르고(1MB 이하로 줄이기),
-// Firestore certificates 컬렉션에 저장하는 구현을 만들어 instance만 바꾸면 된다.
+// Firestore certificates·profilePhotos 컬렉션에 저장하는 구현을 만들어 instance만 바꾸면 된다.
 abstract class PhotoService {
   static PhotoService instance = FakePhotoService();
 
@@ -19,10 +19,21 @@ abstract class PhotoService {
     required MemberType memberType,
     required Uint8List bytes,
   });
+
+  Future<void> uploadProfilePhoto({
+    required String userId,
+    required Uint8List bytes,
+  });
+
+  // 프로필 사진이 없으면 null
+  Future<Uint8List?> getProfilePhoto(String userId);
 }
 
-// 사진 대신 빈 데이터를 돌려준다. 화면에서는 빈 데이터면 디자인의 예시 증명서 모양을 보여준다.
+// 사진 대신 빈 데이터를 돌려준다.
+// 화면에서는 빈 데이터면 증명서는 디자인의 예시 모양, 프로필은 이름 첫 글자를 보여준다.
 class FakePhotoService implements PhotoService {
+  final Map<String, Uint8List> _profilePhotos = {};
+
   @override
   Future<Uint8List?> pickPhoto(PhotoSource source) async => Uint8List(0);
 
@@ -32,4 +43,16 @@ class FakePhotoService implements PhotoService {
     required MemberType memberType,
     required Uint8List bytes,
   }) async {}
+
+  @override
+  Future<void> uploadProfilePhoto({
+    required String userId,
+    required Uint8List bytes,
+  }) async {
+    _profilePhotos[userId] = bytes;
+  }
+
+  @override
+  Future<Uint8List?> getProfilePhoto(String userId) async =>
+      _profilePhotos[userId];
 }

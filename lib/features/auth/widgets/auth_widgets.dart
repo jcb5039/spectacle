@@ -325,15 +325,16 @@ class SignUpStepScaffold extends StatelessWidget {
 
 // 화면 맨 아래 버튼 영역 (위쪽 구분선)
 class AuthBottomAction extends StatelessWidget {
-  const AuthBottomAction({super.key, required this.child});
+  const AuthBottomAction({super.key, required this.child, this.topPadding = 9});
 
   final Widget child;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 84,
-      padding: const EdgeInsets.fromLTRB(16, 9, 16, 24),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 24),
       decoration: const BoxDecoration(
         color: Color(0xF7FFFFFF),
         border: Border(top: BorderSide(color: AuthColors.lineEE)),
