@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
+import '../../services/review_service.dart';
+import '../review/review_detail_screen.dart';
 
 // 실제 알림 기능은 만들지 않으므로 디자인의 예시 알림을 그대로 보여준다.
 class _NotificationItem {
@@ -115,8 +117,15 @@ class NotificationsScreen extends StatelessWidget {
 
   Widget _buildItem(BuildContext context, _NotificationItem item) {
     return InkWell(
-      // 연결할 화면(Q&A 상세·후기 상세)을 만든 뒤 이동 기능을 넣는다.
-      onTap: () {},
+      // Q&A 상세는 아직 없어서 후기 알림만 이동한다.
+      onTap: () {
+        final id = item.reviewId;
+        if (id == null) return;
+        openReviewDetail(
+          context,
+          ReviewService.sampleReviews.firstWhere((r) => r.id == id),
+        );
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: const BoxDecoration(

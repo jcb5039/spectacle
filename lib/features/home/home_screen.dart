@@ -7,6 +7,8 @@ import '../../common/widgets/review_card.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
+import '../review/review_detail_screen.dart';
+import 'banner_screen.dart';
 import 'notifications_screen.dart';
 import 'widgets/banner_slider.dart';
 
@@ -237,8 +239,8 @@ class _TodayViewState extends State<_TodayView> {
                       alignment: Alignment.centerLeft,
                       child: _StoryCard(
                         review: todayReviews[index],
-                        // 후기 상세 화면을 만든 뒤 이동 기능을 넣는다.
-                        onTap: () {},
+                        onTap: () =>
+                            openReviewDetail(context, todayReviews[index]),
                       ),
                     );
                   },
@@ -427,8 +429,10 @@ class _DiscoverViewState extends State<_DiscoverView> {
       children: [
         const SizedBox(height: 17),
         _buildJobTabs(),
-        // 배너 모음 화면을 만든 뒤 이동 기능을 넣는다.
-        BannerSlider(onTap: () {}),
+        BannerSlider(
+          onTap: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const BannerScreen())),
+        ),
         _buildFeedHeading(),
         _buildFeedGrid(),
       ],
@@ -552,8 +556,7 @@ class _DiscoverViewState extends State<_DiscoverView> {
       title: review.title,
       subtitle: review.companyAndJob,
       likeCount: review.likeCount,
-      // 후기 상세 화면을 만든 뒤 이동 기능을 넣는다.
-      onTap: () {},
+      onTap: () => openReviewDetail(context, review),
     );
   }
 }
