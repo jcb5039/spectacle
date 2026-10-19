@@ -24,20 +24,28 @@ class SignUpVerifyScreen extends StatefulWidget {
 
 class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
   bool _emailSent = false;
   Uint8List? _certificate;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
   Future<void> _sendEmail() async {
-    await AuthService.instance.sendVerificationEmail(
-      _emailController.text.trim(),
+    final sent = await sendSignUpVerification(
+      context,
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      confirm: _confirmController.text,
+      alreadySent: _emailSent,
     );
-    if (mounted) setState(() => _emailSent = true);
+    if (sent && mounted) setState(() => _emailSent = true);
   }
 
   Future<void> _pickCertificate() async {
@@ -49,6 +57,12 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
 
   // 회원 정보 저장 + 증명서 올리기 → 관리자 확인 전이라 인증 대기
   Future<void> _submit() async {
+    // 인증 메일을 보낼 때 계정이 만들어지므로, 보내기 전에는 가입할 수 없다
+    if (!_emailSent) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('인증 메일을 먼저 보내주세요.')));
+      return;
+    }
     final data = widget.data..email = _emailController.text.trim();
     final userId = AuthService.instance.currentUserId ?? 'local-user';
     await UserService.instance.saveUser(
@@ -97,6 +111,10 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
           helpText: '메일의 인증 링크를 누르면 완료돼요.',
           sentHelpText: '메일의 링크를 눌러 인증을 완료해 주세요.',
           onSend: _sendEmail,
+        ),
+        PasswordFields(
+          password: _passwordController,
+          confirm: _confirmController,
         ),
         if (certificate == null)
           CertificateUploadBox(

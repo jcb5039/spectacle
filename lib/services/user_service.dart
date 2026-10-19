@@ -1,9 +1,10 @@
 // [A] 기능: 회원 정보 저장·불러오기·수정, 인증 상태 확인 (Firestore users)
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/app_user.dart';
 import '../models/user_spec.dart';
 
-// Firebase 연결 전까지는 FakeUserService(앱이 켜져 있는 동안만 기억)가 동작한다.
-// 연결할 때 Firestore users 컬렉션을 쓰는 구현을 만들어 instance만 바꾸면 된다.
+// 기본값은 FakeUserService(가짜, 테스트용)이고, 앱을 켤 때 main.dart에서 FirestoreUserService로 바꾼다.
 abstract class UserService {
   static UserService instance = FakeUserService();
 
@@ -11,6 +12,22 @@ abstract class UserService {
   Future<void> saveUser(AppUser user);
 
   Future<AppUser?> getUser(String userId);
+}
+
+// 실제 Firestore users 컬렉션 (문서 이름 = 로그인 계정 id)
+class FirestoreUserService implements UserService {
+  CollectionReference<Map<String, dynamic>> get _users =>
+      FirebaseFirestore.instance.collection('users');
+
+  @override
+  Future<void> saveUser(AppUser user) => _users.doc(user.id).set(user.toMap());
+
+  @override
+  Future<AppUser?> getUser(String userId) async {
+    final snapshot = await _users.doc(userId).get();
+    final data = snapshot.data();
+    return data == null ? null : AppUser.fromMap(snapshot.id, data);
+  }
 }
 
 class FakeUserService implements UserService {

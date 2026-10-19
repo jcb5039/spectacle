@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "350680094323",
+    "project_id": "spectacle-22290",
+    "storage_bucket": "spectacle-22290.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350680094323:android:cc6b876c5d6f025b7f3c06",
+        "android_client_info": {
+          "package_name": "com.example.spectacle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWg4qJLz7e_HDXi-ftqWAuVB4u2b8MDLo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

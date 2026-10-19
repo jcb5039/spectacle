@@ -36,11 +36,11 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const MainTabScreen()),
         (_) => false,
       );
-    } catch (_) {
+    } on AuthFailure catch (failure) {
       // 로그인 실패 디자인이 없어서 임시로 아래쪽 안내 문구를 띄운다
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('이메일 또는 비밀번호를 확인해주세요.')));
+          .showSnackBar(SnackBar(content: Text(failure.message)));
     }
   }
 

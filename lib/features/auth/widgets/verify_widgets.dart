@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../../services/auth_service.dart';
 import 'auth_widgets.dart';
 
 // 이메일 입력칸 + 오른쪽 "인증 메일 보내기 / 재전송" 버튼
@@ -54,6 +55,133 @@ class EmailVerifyField extends StatelessWidget {
             sent ? sentHelpText : helpText,
             style: const TextStyle(color: AuthColors.gray8E, fontSize: 10),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// "인증 메일 보내기 / 재전송"을 눌렀을 때: 처음이면 계정을 만들고 메일을 보내고, 이미 보냈으면 다시 보낸다.
+// 보냈으면 true. 이메일·비밀번호가 비었거나 맞지 않으면 아래쪽 안내 문구를 띄우고 false
+Future<bool> sendSignUpVerification(
+  BuildContext context, {
+  required String email,
+  required String password,
+  required String confirm,
+  required bool alreadySent,
+}) async {
+  void notice(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+  try {
+    if (alreadySent) {
+      await AuthService.instance.resendVerificationEmail();
+      return true;
+    }
+    if (email.isEmpty) {
+      notice('이메일을 입력해주세요.');
+      return false;
+    }
+    final passwordError = PasswordFields.validate(password, confirm);
+    if (passwordError != null) {
+      notice(passwordError);
+      return false;
+    }
+    await AuthService.instance.createAccountAndSendVerification(
+      email: email,
+      password: password,
+    );
+    return true;
+  } on AuthFailure catch (failure) {
+    notice(failure.message);
+    return false;
+  }
+}
+
+// 비밀번호 + 비밀번호 확인 입력칸 (디자인에 없어서 다른 입력칸과 같은 모양으로 추가)
+class PasswordFields extends StatefulWidget {
+  const PasswordFields({
+    super.key,
+    required this.password,
+    required this.confirm,
+  });
+
+  final TextEditingController password;
+  final TextEditingController confirm;
+
+  // 문제가 있으면 안내 문구, 괜찮으면 null
+  static String? validate(String password, String confirm) {
+    if (password.length < 8) return '비밀번호는 8자 이상이어야 해요.';
+    if (password != confirm) return '비밀번호가 일치하지 않아요.';
+    return null;
+  }
+
+  @override
+  State<PasswordFields> createState() => _PasswordFieldsState();
+}
+
+class _PasswordFieldsState extends State<PasswordFields> {
+  @override
+  void initState() {
+    super.initState();
+    widget.password.addListener(_refresh);
+    widget.confirm.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    widget.password.removeListener(_refresh);
+    widget.confirm.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() => setState(() {});
+
+  // 입력하는 동안에는 쓴 칸에 대해서만 알려준다
+  String? get _message {
+    final password = widget.password.text;
+    final confirm = widget.confirm.text;
+    if (password.isNotEmpty && password.length < 8) {
+      return '비밀번호는 8자 이상이어야 해요.';
+    }
+    if (confirm.isNotEmpty && password != confirm) {
+      return '비밀번호가 일치하지 않아요.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final message = _message;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          UnderlineTextField(
+            label: '비밀번호',
+            hint: '8자 이상 입력해주세요',
+            controller: widget.password,
+            obscureText: true,
+          ),
+          UnderlineTextField(
+            label: '비밀번호 확인',
+            hint: '비밀번호를 한 번 더 입력해주세요',
+            controller: widget.confirm,
+            obscureText: true,
+          ),
+          if (message != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: const TextStyle(
+                color: AuthColors.black,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -26,6 +26,10 @@ class SignUpStudentVerifyScreen extends StatefulWidget {
 
 class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
   final _emailController = TextEditingController();
+  // 재학 증명서 방식에서 로그인에 쓸 개인 이메일
+  final _personalEmailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
   bool _useEmail = true;
   bool _emailSent = false;
   Uint8List? _certificate;
@@ -33,14 +37,21 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _personalEmailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
   Future<void> _sendEmail() async {
-    await AuthService.instance.sendVerificationEmail(
-      _emailController.text.trim(),
+    final sent = await sendSignUpVerification(
+      context,
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      confirm: _confirmController.text,
+      alreadySent: _emailSent,
     );
-    if (mounted) setState(() => _emailSent = true);
+    if (sent && mounted) setState(() => _emailSent = true);
   }
 
   Future<void> _pickCertificate() async {
@@ -51,13 +62,19 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
   }
 
   // 학교 이메일: 인증 링크를 눌렀으면 바로 인증 완료
-  // 재학 증명서: 관리자 확인 전이라 인증 대기
+  // 재학 증명서: 개인 이메일로 계정을 만들고, 관리자 확인 전이라 인증 대기
   Future<void> _submit() async {
     final data = widget.data;
-    final userId = AuthService.instance.currentUserId ?? 'local-user';
 
     if (_useEmail) {
+      // 인증 메일을 보낼 때 계정이 만들어지므로, 보내기 전에는 가입할 수 없다
+      if (!_emailSent) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('인증 메일을 먼저 보내주세요.')));
+        return;
+      }
       data.email = _emailController.text.trim();
+      final userId = AuthService.instance.currentUserId ?? 'local-user';
       final verified = await AuthService.instance.isEmailVerified();
       if (!verified) {
         if (!mounted) return;
@@ -83,6 +100,34 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
       return;
     }
 
+    final email = _personalEmailController.text.trim();
+    final certificate = _certificate;
+    // 디자인에 없는 상황이라 임시로 아래쪽 안내 문구를 띄운다
+    final problem = email.isEmpty
+        ? '로그인에 사용할 이메일을 입력해주세요.'
+        : PasswordFields.validate(
+                _passwordController.text,
+                _confirmController.text,
+              ) ??
+              (certificate == null ? '재학 증명서 사진을 올려주세요.' : null);
+    if (problem != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(problem)));
+      return;
+    }
+    try {
+      await AuthService.instance.createAccount(
+        email: email,
+        password: _passwordController.text,
+      );
+    } on AuthFailure catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(failure.message)));
+      return;
+    }
+    data.email = email;
+    final userId = AuthService.instance.currentUserId ?? 'local-user';
     await UserService.instance.saveUser(
       data.toAppUser(
         id: userId,
@@ -90,14 +135,11 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
         method: VerificationMethod.certificate,
       ),
     );
-    final certificate = _certificate;
-    if (certificate != null) {
-      await PhotoService.instance.uploadCertificate(
-        userId: userId,
-        memberType: data.memberType,
-        bytes: certificate,
-      );
-    }
+    await PhotoService.instance.uploadCertificate(
+      userId: userId,
+      memberType: data.memberType,
+      bytes: certificate!,
+    );
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -134,14 +176,29 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
             helpText: '학교 이메일로 전송된 인증 링크를 눌러주세요.',
             sentHelpText: '학교 이메일로 전송된 인증 링크를 눌러주세요.',
             onSend: _sendEmail,
-          )
-        else if (certificate == null)
+          ),
+        if (!_useEmail)
+          Padding(
+            padding: const EdgeInsets.only(top: 29),
+            child: UnderlineTextField(
+              label: '이메일',
+              hint: '로그인에 사용할 이메일을 입력해주세요',
+              controller: _personalEmailController,
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ),
+        // 학교 이메일·재학 증명서 두 방식 모두 비밀번호를 정한다
+        PasswordFields(
+          password: _passwordController,
+          confirm: _confirmController,
+        ),
+        if (!_useEmail && certificate == null)
           CertificateUploadBox(
             title: '재학 증명서 사진 업로드',
             hint: '학교명과 재학 상태가 보이도록 촬영해주세요.',
             onTap: _pickCertificate,
-          )
-        else
+          ),
+        if (!_useEmail && certificate != null)
           CertificateAttached(
             bytes: certificate,
             documentName: '재학 증명서',
