@@ -6,6 +6,7 @@ import '../../common/theme/app_text_styles.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
+import '../qa/question_write_screen.dart';
 import 'review_detail_screen.dart';
 
 // 후기 작성자(선배)의 공개 프로필. 작성자 정보는 열고 온 후기에서 가져온다.
@@ -197,8 +198,12 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
         width: double.infinity,
         height: 49,
         child: FilledButton(
-          // 질문 작성 화면을 만든 뒤 이동 기능을 넣는다.
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  QuestionWriteScreen(initialCategory: review.category),
+            ),
+          ),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.text,
             foregroundColor: Colors.white,

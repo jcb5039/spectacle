@@ -8,6 +8,7 @@ import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
+import '../qa/question_write_screen.dart';
 import 'link_browser_screen.dart';
 import 'senior_profile_screen.dart';
 
@@ -634,8 +635,12 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
             child: SizedBox(
               height: 48,
               child: FilledButton(
-                // 질문 작성 화면을 만든 뒤 이동 기능을 넣는다.
-                onPressed: () {},
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        QuestionWriteScreen(initialCategory: review.category),
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.text,
                   foregroundColor: Colors.white,
