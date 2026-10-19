@@ -8,6 +8,7 @@ import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
 import '../review/review_detail_screen.dart';
+import '../review/review_write_screen.dart';
 import 'banner_screen.dart';
 import 'notifications_screen.dart';
 import 'widgets/banner_slider.dart';
@@ -47,8 +48,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: 18,
                 bottom: 14,
                 child: _WriteButton(
-                  // 후기 작성 화면을 만든 뒤 이동 기능을 넣는다.
-                  onTap: () {},
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ReviewWriteScreen(),
+                    ),
+                  ),
                 ),
               ),
           ],

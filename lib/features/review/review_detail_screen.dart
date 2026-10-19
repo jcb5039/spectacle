@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
+import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
@@ -44,9 +45,14 @@ class ReviewPhoto extends StatelessWidget {
 }
 
 class ReviewDetailScreen extends StatefulWidget {
-  const ReviewDetailScreen({super.key, required this.review});
+  const ReviewDetailScreen({
+    super.key,
+    required this.review,
+    this.toastMessage,
+  });
 
   final Review review;
+  final String? toastMessage; // 열리자마자 띄울 알림 띠 (예: 후기가 등록됐어요)
 
   @override
   State<ReviewDetailScreen> createState() => _ReviewDetailScreenState();
@@ -64,6 +70,12 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
   @override
   void initState() {
     super.initState();
+    final message = widget.toastMessage;
+    if (message != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showBlackToast(context, message);
+      });
+    }
     _scroll.addListener(() {
       final topInset = MediaQuery.of(context).padding.top;
       final show = _scroll.offset > _coverHeight - (topInset + 40);
