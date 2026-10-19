@@ -43,7 +43,10 @@ class _MainTabScreenState extends State<MainTabScreen> {
             icon: Icon(Icons.emoji_events_outlined),
             label: '랭킹',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'MY'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'MY',
+          ),
         ],
       ),
     );

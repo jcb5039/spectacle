@@ -1,7 +1,7 @@
 // [공통-A] 앱 전체 설정: 테마 적용, 로그인 여부에 따라 첫 화면(스플래시/로그인/홈) 결정
 import 'package:flutter/material.dart';
 
-import 'common/main_tab_screen.dart';
+import 'features/auth/splash_screen.dart';
 
 class SpectacleApp extends StatelessWidget {
   const SpectacleApp({super.key});
@@ -16,7 +16,8 @@ class SpectacleApp extends StatelessWidget {
         fontFamily: 'Pretendard',
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const MainTabScreen(),
+      // 스플래시가 로그인 여부를 보고 로그인 화면 또는 하단 탭으로 보낸다
+      home: const SplashScreen(),
     );
   }
 }

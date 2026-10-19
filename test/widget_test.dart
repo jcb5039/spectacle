@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:spectacle/app.dart';
+import 'package:spectacle/common/main_tab_screen.dart';
 
 void main() {
   testWidgets('하단 탭 5개가 보이고 누르면 화면이 바뀐다', (WidgetTester tester) async {
-    await tester.pumpWidget(const SpectacleApp());
+    await tester.pumpWidget(const MaterialApp(home: MainTabScreen()));
 
     final tabBar = find.byType(BottomNavigationBar);
     for (final label in ['홈', '검색', 'Q&A', '랭킹', 'MY']) {
