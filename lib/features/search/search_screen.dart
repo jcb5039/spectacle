@@ -66,6 +66,10 @@ class _SearchScreenState extends State<SearchScreen> {
     return list;
   }
 
+  // 키보드를 내리고 검색창 선택도 푼다.
+  // (FocusScope.unfocus는 검색창을 기억해 두었다가, 다른 화면에서 돌아오면 다시 선택한다)
+  void _hideKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
   // 필터 초기화: 처음 상태로 되돌린다.
   void _resetFilters() {
     setState(() {
@@ -83,7 +87,7 @@ class _SearchScreenState extends State<SearchScreen> {
     Set<String> selected,
     void Function(Set<String>) onApply,
   ) async {
-    FocusScope.of(context).unfocus();
+    _hideKeyboard();
     final picked = await showFilterSheet(
       context,
       title: title,
@@ -103,7 +107,7 @@ class _SearchScreenState extends State<SearchScreen> {
         bottom: false,
         child: GestureDetector(
           // 빈 곳을 누르면 키보드를 내린다.
-          onTap: () => FocusScope.of(context).unfocus(),
+          onTap: _hideKeyboard,
           behavior: HitTestBehavior.translucent,
           child: ListView(
             padding: EdgeInsets.zero,
@@ -331,7 +335,10 @@ class _SearchScreenState extends State<SearchScreen> {
             _ResultItem(
               review: results[i],
               showTopLine: i > 0,
-              onTap: () => openReviewDetail(context, results[i]),
+              onTap: () {
+                _hideKeyboard();
+                openReviewDetail(context, results[i]);
+              },
             ),
         ],
       ),
