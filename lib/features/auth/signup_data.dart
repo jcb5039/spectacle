@@ -12,6 +12,7 @@ class SignUpData {
   String? jobGroup;
   String? company;
   String? email;
+  String? nickname;
 
   bool get isEmployee => memberType == MemberType.employee;
 
@@ -31,6 +32,7 @@ class SignUpData {
       graduationYear: graduationYear,
       jobGroup: isEmployee ? jobGroup : null,
       company: isEmployee ? company : null,
+      nickname: nickname,
       verificationStatus: status,
       verificationMethod: method,
       verifiedAt: status == VerificationStatus.verified ? now : null,

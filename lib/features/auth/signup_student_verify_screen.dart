@@ -25,6 +25,7 @@ class SignUpStudentVerifyScreen extends StatefulWidget {
 }
 
 class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
+  final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
   // 재학 증명서 방식에서 로그인에 쓸 개인 이메일
   final _personalEmailController = TextEditingController();
@@ -36,6 +37,7 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
 
   @override
   void dispose() {
+    _nicknameController.dispose();
     _emailController.dispose();
     _personalEmailController.dispose();
     _passwordController.dispose();
@@ -46,6 +48,7 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
   Future<void> _sendEmail() async {
     final sent = await sendSignUpVerification(
       context,
+      nickname: _nicknameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
       confirm: _confirmController.text,
@@ -65,12 +68,19 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
   // 재학 증명서: 개인 이메일로 계정을 만들고, 관리자 확인 전이라 인증 대기
   Future<void> _submit() async {
     final data = widget.data;
+    final nickname = _nicknameController.text.trim();
+    data.nickname = nickname;
 
     if (_useEmail) {
       // 인증 메일을 보낼 때 계정이 만들어지므로, 보내기 전에는 가입할 수 없다
       if (!_emailSent) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('인증 메일을 먼저 보내주세요.')));
+        return;
+      }
+      final nicknameError = nicknameProblem(nickname);
+      if (nicknameError != null) {
+        _notice(nicknameError);
         return;
       }
       data.email = _emailController.text.trim();
@@ -84,13 +94,21 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
         ).showSnackBar(const SnackBar(content: Text('메일의 인증 링크를 먼저 눌러주세요.')));
         return;
       }
-      await UserService.instance.saveUser(
-        data.toAppUser(
-          id: userId,
-          status: VerificationStatus.verified,
-          method: VerificationMethod.schoolEmail,
-        ),
-      );
+      try {
+        await UserService.instance.createUser(
+          data.toAppUser(
+            id: userId,
+            status: VerificationStatus.verified,
+            method: VerificationMethod.schoolEmail,
+          ),
+        );
+      } on NicknameTakenException catch (error) {
+        _notice(error.toString());
+        return;
+      } catch (_) {
+        _showSaveFailed();
+        return;
+      }
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -102,44 +120,56 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
 
     final email = _personalEmailController.text.trim();
     final certificate = _certificate;
+    // 계정을 만들기 전에 닉네임부터 확인한다 (중복이면 계정을 만들지 않는다)
+    final nicknameError = await checkNickname(nickname);
+    if (!mounted) return;
     // 디자인에 없는 상황이라 임시로 아래쪽 안내 문구를 띄운다
-    final problem = email.isEmpty
-        ? '로그인에 사용할 이메일을 입력해주세요.'
-        : PasswordFields.validate(
-                _passwordController.text,
-                _confirmController.text,
-              ) ??
-              (certificate == null ? '재학 증명서 사진을 올려주세요.' : null);
+    final problem =
+        nicknameError ??
+        PasswordFields.validate(
+          _passwordController.text,
+          _confirmController.text,
+        ) ??
+        (email.isEmpty ? '로그인에 사용할 이메일을 입력해주세요.' : null) ??
+        (certificate == null ? '재학 증명서 사진을 올려주세요.' : null);
     if (problem != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(problem)));
+      _notice(problem);
       return;
     }
-    try {
-      await AuthService.instance.createAccount(
-        email: email,
-        password: _passwordController.text,
-      );
-    } on AuthFailure catch (failure) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(failure.message)));
-      return;
+    // 앞서 계정은 만들었는데 저장이 실패해 다시 누른 경우에는 계정을 또 만들지 않는다
+    if (AuthService.instance.currentEmail != email) {
+      try {
+        await AuthService.instance.createAccount(
+          email: email,
+          password: _passwordController.text,
+        );
+      } on AuthFailure catch (failure) {
+        _notice(failure.message);
+        return;
+      }
     }
     data.email = email;
     final userId = AuthService.instance.currentUserId ?? 'local-user';
-    await UserService.instance.saveUser(
-      data.toAppUser(
-        id: userId,
-        status: VerificationStatus.pending,
-        method: VerificationMethod.certificate,
-      ),
-    );
-    await PhotoService.instance.uploadCertificate(
-      userId: userId,
-      memberType: data.memberType,
-      bytes: certificate!,
-    );
+    try {
+      await UserService.instance.createUser(
+        data.toAppUser(
+          id: userId,
+          status: VerificationStatus.pending,
+          method: VerificationMethod.certificate,
+        ),
+      );
+      await PhotoService.instance.uploadCertificate(
+        userId: userId,
+        memberType: data.memberType,
+        bytes: certificate!,
+      );
+    } on NicknameTakenException catch (error) {
+      _notice(error.toString());
+      return;
+    } catch (_) {
+      _showSaveFailed();
+      return;
+    }
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -148,6 +178,15 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
       ),
       (_) => false,
     );
+  }
+
+  // 회원 정보·증명서 저장이 실패했을 때 (디자인에 없는 상황이라 임시로 아래쪽 안내 문구)
+  void _showSaveFailed() => _notice('가입하지 못했어요. 잠시 후 다시 시도해주세요.');
+
+  void _notice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -166,6 +205,13 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
         VerifyMethodSegment(
           useEmail: _useEmail,
           onChanged: (useEmail) => setState(() => _useEmail = useEmail),
+        ),
+        NicknameField(controller: _nicknameController),
+        // 학교 이메일·재학 증명서 두 방식 모두 비밀번호를 정한다.
+        // 인증 메일을 보낼 때 계정이 만들어지므로 이메일보다 먼저 받는다
+        PasswordFields(
+          password: _passwordController,
+          confirm: _confirmController,
         ),
         if (_useEmail)
           EmailVerifyField(
@@ -187,11 +233,6 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
               keyboardType: TextInputType.emailAddress,
             ),
           ),
-        // 학교 이메일·재학 증명서 두 방식 모두 비밀번호를 정한다
-        PasswordFields(
-          password: _passwordController,
-          confirm: _confirmController,
-        ),
         if (!_useEmail && certificate == null)
           CertificateUploadBox(
             title: '재학 증명서 사진 업로드',
