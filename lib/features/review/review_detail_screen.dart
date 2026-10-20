@@ -64,13 +64,17 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
 
   final ScrollController _scroll = ScrollController();
   bool _showStickyHeader = false;
-  bool _liked = false;
 
   Review get review => widget.review;
+
+  // 좋아요 수·하트가 바뀌면 다시 그린다.
+  void _onReviewsChanged() => setState(() {});
 
   @override
   void initState() {
     super.initState();
+    ReviewService.start();
+    ReviewService.changes.addListener(_onReviewsChanged);
     final message = widget.toastMessage;
     if (message != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,15 +90,22 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
 
   @override
   void dispose() {
+    ReviewService.changes.removeListener(_onReviewsChanged);
     _scroll.dispose();
+    // 다른 화면들은 위쪽 글자색을 따로 정하지 않아서, 나갈 때 기본(검정)으로 되돌린다.
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // 이 화면이 맨 위에 있을 때만 흰색을 쓴다.
+    // 선배 프로필 등 다른 화면을 위에 띄우면 그 화면은 글자색을 따로 정하지 않아서 검정으로 둔다.
+    final isTop = ModalRoute.of(context)?.isCurrent ?? true;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 사진 위에서는 위쪽 시계·배터리 글자를 흰색으로
-      value: _showStickyHeader
+      value: _showStickyHeader || !isTop
           ? SystemUiOverlayStyle.dark
           : SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -586,7 +597,8 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
 
   // ───── 아래 고정 버튼: 도움돼요 / 선배에게 질문하기 ─────
   Widget _buildActions() {
-    final likeCount = review.likeCount + (_liked ? 1 : 0);
+    final liked = Likes.isLiked(review.id);
+    final likeCount = ReviewService.likeCountOf(review);
     return Container(
       height: 86,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 25),
@@ -600,8 +612,14 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
             width: 135,
             height: 48,
             child: OutlinedButton(
-              // 좋아요 저장은 Firestore 연결 후에 한다.
-              onPressed: () => setState(() => _liked = !_liked),
+              onPressed: () => ReviewService.toggleLike(review).catchError((
+                error,
+              ) {
+                debugPrint('도움돼요 저장 실패: $error');
+                if (mounted) {
+                  showBlackToast(context, '도움돼요를 저장하지 못했어요', showCheck: false);
+                }
+              }),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.text,
                 side: const BorderSide(color: AppColors.separator),
@@ -614,7 +632,7 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    _liked ? Icons.favorite : Icons.favorite_border,
+                    liked ? Icons.favorite : Icons.favorite_border,
                     size: 18,
                     color: AppColors.text,
                   ),

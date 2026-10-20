@@ -28,6 +28,7 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
 
   String? _category;
   final List<_AddedLink> _addedLinks = []; // "＋ 링크 추가"로 늘어난 칸
+  bool _saving = false; // 저장 중에 "후기 등록"을 또 누르지 않게
 
   @override
   void dispose() {
@@ -58,7 +59,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_saving) return;
     final title = _title.text.trim();
     final preparation = _preparation.text.trim();
     if (title.isEmpty) {
@@ -89,17 +91,17 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
     ];
 
     final review = Review(
-      id: 'w${DateTime.now().millisecondsSinceEpoch}',
+      id: ReviewService.newId(),
       category: _category!,
       title: title,
-      company: SampleCurrentUser.company,
-      job: SampleCurrentUser.job,
-      authorId: SampleCurrentUser.id,
-      authorName: SampleCurrentUser.name,
-      authorSchool: SampleCurrentUser.school,
-      authorDepartment: SampleCurrentUser.department,
-      authorAdmissionYear: SampleCurrentUser.admissionYear,
-      authorGraduationYear: SampleCurrentUser.graduationYear,
+      company: CurrentMember.company,
+      job: CurrentMember.job,
+      authorId: CurrentMember.id,
+      authorName: CurrentMember.name,
+      authorSchool: CurrentMember.school,
+      authorDepartment: CurrentMember.department,
+      authorAdmissionYear: CurrentMember.admissionYear,
+      authorGraduationYear: CurrentMember.graduationYear,
       preparation: preparation,
       difficulty: _difficulty.text.trim(),
       trialAndError: _trialAndError.text.trim(),
@@ -108,7 +110,18 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
       createdAt: DateTime.now(),
     );
 
-    ReviewService.addReview(review);
+    setState(() => _saving = true);
+    try {
+      await ReviewService.addReview(review);
+    } catch (error) {
+      debugPrint('후기 저장 실패: $error');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다
+      showBlackToast(context, '후기를 저장하지 못했어요', showCheck: false);
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => ReviewDoneScreen(review: review)),
     );

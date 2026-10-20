@@ -23,7 +23,7 @@ class AppUser {
     this.jobGroup,
     this.company,
     this.jobTitle,
-    this.name,
+    this.nickname,
     this.phone,
     this.verificationMethod,
     this.verifiedAt,
@@ -44,8 +44,9 @@ class AppUser {
   final String? jobGroup;
   final String? company;
   final String? jobTitle;
-  // 회원가입에서 아직 받지 않는 정보 (Firebase 연결 후 받을 예정)
-  final String? name;
+  // 닉네임: 다른 회원에게 보이는 이름. 같은 닉네임은 한 명만 쓸 수 있다 (nicknames 명단으로 확인)
+  final String? nickname;
+  // 회원가입에서 아직 받지 않는 정보
   final String? phone;
   final VerificationStatus verificationStatus;
   final VerificationMethod? verificationMethod;
@@ -67,7 +68,7 @@ class AppUser {
     int? graduationYear,
     String? company,
     String? jobTitle,
-    String? name,
+    String? nickname,
     String? phone,
     bool? showCompany,
     bool? allowQuestions,
@@ -86,7 +87,7 @@ class AppUser {
       jobGroup: jobGroup,
       company: company ?? this.company,
       jobTitle: jobTitle ?? this.jobTitle,
-      name: name ?? this.name,
+      nickname: nickname ?? this.nickname,
       phone: phone ?? this.phone,
       verificationMethod: verificationMethod,
       verifiedAt: verifiedAt,
@@ -108,7 +109,7 @@ class AppUser {
       'jobGroup': jobGroup,
       'company': company,
       'jobTitle': jobTitle,
-      'name': name,
+      'nickname': nickname,
       'phone': phone,
       'verificationStatus': verificationStatus.name,
       'verificationMethod': verificationMethod?.name,
@@ -135,7 +136,7 @@ class AppUser {
       jobGroup: map['jobGroup'] as String?,
       company: map['company'] as String?,
       jobTitle: map['jobTitle'] as String?,
-      name: map['name'] as String?,
+      nickname: map['nickname'] as String?,
       phone: map['phone'] as String?,
       verificationStatus: VerificationStatus.values.byName(
         map['verificationStatus'] as String,

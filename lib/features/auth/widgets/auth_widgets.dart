@@ -372,6 +372,7 @@ class UnderlineTextField extends StatelessWidget {
     required this.controller,
     this.keyboardType,
     this.obscureText = false,
+    this.readOnly = false,
     this.padding = const EdgeInsets.fromLTRB(0, 17, 0, 13),
   });
 
@@ -380,6 +381,8 @@ class UnderlineTextField extends StatelessWidget {
   final TextEditingController controller;
   final TextInputType? keyboardType;
   final bool obscureText;
+  // 고칠 수 없는 칸: 흐린 글자로 보여주기만 한다
+  final bool readOnly;
   final EdgeInsets padding;
 
   @override
@@ -398,8 +401,14 @@ class UnderlineTextField extends StatelessWidget {
             controller: controller,
             keyboardType: keyboardType,
             obscureText: obscureText,
+            readOnly: readOnly,
             autocorrect: false,
-            style: const TextStyle(color: AuthColors.black, fontSize: 15),
+            // 입력한 글자는 힌트와 구분되도록 진하고 굵게 (고칠 수 없는 칸은 흐리게)
+            style: TextStyle(
+              color: readOnly ? AuthColors.gray8E : AuthColors.black,
+              fontSize: 15,
+              fontWeight: readOnly ? FontWeight.w400 : FontWeight.w700,
+            ),
             decoration: InputDecoration.collapsed(
               hintText: hint,
               hintStyle: const TextStyle(
@@ -449,10 +458,15 @@ class UnderlineSelectField extends StatelessWidget {
                 Expanded(
                   child: Text(
                     value ?? hint,
-                    style: const TextStyle(
-                      color: AuthColors.grayAA,
+                    // 고른 값은 진하고 굵게, 아직 안 골랐으면 흐린 힌트
+                    style: TextStyle(
+                      color: value == null
+                          ? AuthColors.grayAA
+                          : AuthColors.black,
                       fontSize: 15,
-                      fontWeight: FontWeight.w400,
+                      fontWeight: value == null
+                          ? FontWeight.w400
+                          : FontWeight.w700,
                     ),
                   ),
                 ),
