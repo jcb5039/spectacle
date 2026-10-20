@@ -518,7 +518,7 @@ class _ResultItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            const VerifiedBadge(style: VerifiedBadgeStyle.plain),
+            const VerifiedBadge(style: VerifiedBadgeStyle.muted),
           ],
         ),
       ),

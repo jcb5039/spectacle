@@ -515,7 +515,7 @@ class _AnswerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const VerifiedBadge(style: VerifiedBadgeStyle.plain),
+                    const VerifiedBadge(style: VerifiedBadgeStyle.muted),
                   ],
                 ),
                 const SizedBox(height: 5),
