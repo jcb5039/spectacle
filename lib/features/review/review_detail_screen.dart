@@ -87,14 +87,20 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    // 다른 화면들은 위쪽 글자색을 따로 정하지 않아서, 나갈 때 기본(검정)으로 되돌린다.
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // 이 화면이 맨 위에 있을 때만 흰색을 쓴다.
+    // 선배 프로필 등 다른 화면을 위에 띄우면 그 화면은 글자색을 따로 정하지 않아서 검정으로 둔다.
+    final isTop = ModalRoute.of(context)?.isCurrent ?? true;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // 사진 위에서는 위쪽 시계·배터리 글자를 흰색으로
-      value: _showStickyHeader
+      value: _showStickyHeader || !isTop
           ? SystemUiOverlayStyle.dark
           : SystemUiOverlayStyle.light,
       child: Scaffold(
