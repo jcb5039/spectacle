@@ -43,10 +43,12 @@ class _QaDetailScreenState extends State<QaDetailScreen> {
   final _answerFocus = FocusNode();
 
   Question get question => widget.question;
+  bool _saving = false; // 답변 저장 중에 "등록"을 또 누르지 않게
 
   @override
   void initState() {
     super.initState();
+    QaService.start();
     QaService.changes.addListener(_onChanged);
     _answerFocus.addListener(_onChanged);
     final toast = widget.toastMessage;
@@ -77,12 +79,27 @@ class _QaDetailScreenState extends State<QaDetailScreen> {
     return list;
   }
 
-  void _submitAnswer() {
+  Future<void> _submitAnswer() async {
     final content = _answerController.text.trim();
-    if (content.isEmpty) return;
-    QaService.addAnswer(newAnswerFromCurrentUser(question.id, content));
-    _answerController.clear();
-    _answerFocus.unfocus();
+    if (content.isEmpty || _saving) return;
+    // 답변은 인증된 선배(취업자)만 쓸 수 있다.
+    // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다 (A의 미인증 안내 팝업 연결은 나중에)
+    if (!CurrentMember.canWriteSeniorPost) {
+      showBlackToast(context, '인증된 선배만 답변할 수 있어요', showCheck: false);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await QaService.addAnswer(newAnswerFromCurrentUser(question.id, content));
+      _answerController.clear();
+      _answerFocus.unfocus();
+    } catch (error) {
+      debugPrint('답변 저장 실패: $error');
+      if (mounted) {
+        showBlackToast(context, '답변을 저장하지 못했어요', showCheck: false);
+      }
+    }
+    if (mounted) setState(() => _saving = false);
   }
 
   @override
@@ -570,7 +587,12 @@ class _AnswerCard extends StatelessWidget {
           ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => QaService.toggleLike(answer.id),
+            onTap: () => QaService.toggleLike(answer).catchError((error) {
+              debugPrint('도움돼요 저장 실패: $error');
+              if (context.mounted) {
+                showBlackToast(context, '도움돼요를 저장하지 못했어요', showCheck: false);
+              }
+            }),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

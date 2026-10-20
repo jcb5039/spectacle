@@ -1,4 +1,7 @@
 // [B] 기능: 질문·답변 저장·불러오기, Q&A 키워드 검색(앱 안에서 걸러내기) (Firestore questions)
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/answer.dart';
@@ -11,16 +14,76 @@ class QaService {
   // 질문·답변이 바뀌면 값이 올라간다. 화면은 이것을 지켜보다가 다시 그린다.
   static final ValueNotifier<int> changes = ValueNotifier(0);
 
-  // 이 앱에서 새로 쓴 질문 (앱을 끄면 사라진다. Firestore 연결 전까지)
-  static final List<Question> questions = [];
+  static FirebaseFirestore get _db => FirebaseFirestore.instance;
 
-  static void addQuestion(Question question) {
-    questions.insert(0, question);
-    changes.value++;
+  // 서버(Firestore)에 있는 질문·답변. 가짜 로그인에서는 새로 쓴 글이 여기에만 들어간다.
+  static final List<Question> _serverQuestions = []; // 최신순
+  static final List<Answer> _serverAnswers = []; // 오래된 순
+  static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _questionSub;
+  static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _answerSub;
+
+  // Q&A 화면들이 켜질 때 부른다. 여러 번 불러도 한 번만 연결한다.
+  static void start() {
+    CurrentMember.load();
+    Likes.start();
+    if (!firebaseReady) return;
+    _questionSub ??= _db
+        .collection('questions')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            _serverQuestions
+              ..clear()
+              ..addAll(
+                snapshot.docs.map((d) => Question.fromMap(d.id, d.data())),
+              );
+            changes.value++;
+          },
+          onError: (Object error) {
+            debugPrint('질문을 불러오지 못했어요: $error');
+            _questionSub = null;
+          },
+        );
+    _answerSub ??= _db
+        .collection('answers')
+        .orderBy('createdAt')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            _serverAnswers
+              ..clear()
+              ..addAll(
+                snapshot.docs.map((d) => Answer.fromMap(d.id, d.data())),
+              );
+            changes.value++;
+          },
+          onError: (Object error) {
+            debugPrint('답변을 불러오지 못했어요: $error');
+            _answerSub = null;
+          },
+        );
   }
 
-  // Q&A 목록: 새로 쓴 질문이 맨 앞, 그다음 예시 질문
-  static List<Question> get allQuestions => [...questions, ..._sampleQuestions];
+  static String newQuestionId() => firebaseReady
+      ? _db.collection('questions').doc().id
+      : 'q${DateTime.now().millisecondsSinceEpoch}';
+
+  // 저장에 실패하면 오류를 그대로 넘긴다 (화면에서 안내)
+  static Future<void> addQuestion(Question question) async {
+    if (!firebaseReady) {
+      _serverQuestions.insert(0, question);
+      changes.value++;
+      return;
+    }
+    await _db.collection('questions').doc(question.id).set(question.toMap());
+  }
+
+  // Q&A 목록: 서버 질문(최신순), 그다음 예시 질문
+  static List<Question> get allQuestions => [
+    ..._serverQuestions,
+    if (showSampleData) ..._sampleQuestions,
+  ];
 
   // Q&A 목록·검색 결과: 직무 탭과 검색어로 앱 안에서 걸러낸다.
   static List<Question> searchQuestions({
@@ -42,35 +105,42 @@ class QaService {
 
   // ───── 답변 ─────
 
-  // 이 앱에서 새로 쓴 답변 (앱을 끄면 사라진다. Firestore 연결 전까지)
-  static final List<Answer> _writtenAnswers = [];
+  static String newAnswerId() => firebaseReady
+      ? _db.collection('answers').doc().id
+      : 'a${DateTime.now().millisecondsSinceEpoch}';
 
-  // 내가 도움돼요(좋아요)를 누른 답변 id
-  static final Set<String> _likedAnswerIds = {};
-
-  static void addAnswer(Answer answer) {
-    _writtenAnswers.add(answer);
-    changes.value++;
+  // 저장에 실패하면 오류를 그대로 넘긴다 (화면에서 안내)
+  static Future<void> addAnswer(Answer answer) async {
+    if (!firebaseReady) {
+      _serverAnswers.add(answer);
+      changes.value++;
+      return;
+    }
+    await _db.collection('answers').doc(answer.id).set(answer.toMap());
   }
 
   static List<Answer> answersOf(String questionId) => [
-    ..._sampleAnswers,
-    ..._writtenAnswers,
+    if (showSampleData) ..._sampleAnswers,
+    ..._serverAnswers,
   ].where((a) => a.questionId == questionId).toList();
 
   // 답변 수는 실제 답변 개수로 센다.
   static int answerCountOf(String questionId) => answersOf(questionId).length;
 
-  static bool isLiked(String answerId) => _likedAnswerIds.contains(answerId);
+  static bool _isSample(Answer answer) =>
+      _sampleAnswers.any((a) => a.id == answer.id);
 
-  // 내가 누른 도움돼요까지 더한 수
+  static bool isLiked(String answerId) => Likes.isLiked(answerId);
+
+  // 서버 답변은 서버의 likeCount에 내 좋아요가 이미 들어 있다.
   static int likeCountOf(Answer answer) =>
-      answer.likeCount + (isLiked(answer.id) ? 1 : 0);
+      answer.likeCount + (_isSample(answer) && isLiked(answer.id) ? 1 : 0);
 
-  static void toggleLike(String answerId) {
-    if (!_likedAnswerIds.remove(answerId)) _likedAnswerIds.add(answerId);
-    changes.value++;
-  }
+  static Future<void> toggleLike(Answer answer) => Likes.toggle(
+    collection: 'answers',
+    targetId: answer.id,
+    isSample: _isSample(answer),
+  );
 
   // ───── 예시 데이터 (Firestore 연결 전까지, 디자인에 적힌 내용) ─────
   // 디자인에 없는 본문·작성자는 비워 둔다.
@@ -202,16 +272,16 @@ String questionInfo(Question question) => [
   timeAgo(question.createdAt),
 ].join(' · ');
 
-// 지금 사용자로 답변 만들기 (로그인 기능(A 담당)이 생기기 전까지 예시 사용자)
+// 지금 로그인한 회원으로 답변 만들기
 Answer newAnswerFromCurrentUser(String questionId, String content) => Answer(
-  id: 'a${DateTime.now().millisecondsSinceEpoch}',
+  id: QaService.newAnswerId(),
   questionId: questionId,
   content: content,
-  authorId: SampleCurrentUser.id,
-  authorName: SampleCurrentUser.name,
-  authorSchool: SampleCurrentUser.school,
-  authorDepartment: SampleCurrentUser.department,
-  authorCompany: SampleCurrentUser.company,
-  authorJob: SampleCurrentUser.job,
+  authorId: CurrentMember.id,
+  authorName: CurrentMember.name,
+  authorSchool: CurrentMember.school,
+  authorDepartment: CurrentMember.department,
+  authorCompany: CurrentMember.company,
+  authorJob: CurrentMember.job,
   createdAt: DateTime.now(),
 );

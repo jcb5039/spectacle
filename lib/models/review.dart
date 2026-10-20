@@ -11,6 +11,14 @@ class ReviewLink {
   final String type; // 예: Notion, Drive, GitHub
   final String title;
   final String url;
+
+  Map<String, dynamic> toMap() => {'type': type, 'title': title, 'url': url};
+
+  factory ReviewLink.fromMap(Map<String, dynamic> map) => ReviewLink(
+    type: map['type'] as String? ?? '',
+    title: map['title'] as String? ?? '',
+    url: map['url'] as String? ?? '',
+  );
 }
 
 class Review {
@@ -69,4 +77,62 @@ class Review {
   final DateTime createdAt;
 
   String get companyAndJob => '$company · $job';
+
+  // Firestore reviews 컬렉션에 저장할 모양 (문서 이름 = id)
+  // 날짜는 회원 정보(users)처럼 밀리초 숫자로 저장한다.
+  Map<String, dynamic> toMap() {
+    return {
+      'category': category,
+      'title': title,
+      'company': company,
+      'job': job,
+      'authorId': authorId,
+      'authorName': authorName,
+      'authorSchool': authorSchool,
+      'authorDepartment': authorDepartment,
+      'authorAdmissionYear': authorAdmissionYear,
+      'authorGraduationYear': authorGraduationYear,
+      'preparation': preparation,
+      'difficulty': difficulty,
+      'trialAndError': trialAndError,
+      'tip': tip,
+      'quote': quote,
+      'links': [for (final link in links) link.toMap()],
+      'hashtags': hashtags,
+      'photoCaption': photoCaption,
+      'likeCount': likeCount,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+    };
+  }
+
+  factory Review.fromMap(String id, Map<String, dynamic> map) {
+    return Review(
+      id: id,
+      category: map['category'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      company: map['company'] as String? ?? '',
+      job: map['job'] as String? ?? '',
+      authorId: map['authorId'] as String? ?? '',
+      authorName: map['authorName'] as String? ?? '',
+      authorSchool: map['authorSchool'] as String? ?? '',
+      authorDepartment: map['authorDepartment'] as String? ?? '',
+      authorAdmissionYear: map['authorAdmissionYear'] as String? ?? '',
+      authorGraduationYear: map['authorGraduationYear'] as String? ?? '',
+      preparation: map['preparation'] as String? ?? '',
+      difficulty: map['difficulty'] as String? ?? '',
+      trialAndError: map['trialAndError'] as String? ?? '',
+      tip: map['tip'] as String? ?? '',
+      quote: map['quote'] as String? ?? '',
+      links: [
+        for (final link in map['links'] as List? ?? const [])
+          ReviewLink.fromMap(Map<String, dynamic>.from(link as Map)),
+      ],
+      hashtags: List<String>.from(map['hashtags'] as List? ?? const []),
+      photoCaption: map['photoCaption'] as String? ?? '',
+      likeCount: (map['likeCount'] as num? ?? 0).toInt(),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        (map['createdAt'] as num? ?? 0).toInt(),
+      ),
+    );
+  }
 }

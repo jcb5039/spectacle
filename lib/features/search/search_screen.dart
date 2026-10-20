@@ -26,18 +26,23 @@ class _SearchScreenState extends State<SearchScreen> {
   Set<String> _categories = {};
   Set<String> _companies = {};
   bool _isLatest = true;
+  bool _schoolPicked = false; // 학교 필터를 직접 바꿨는지
 
   // 처음에는 내 학교 필터가 켜져 있다. (디자인: 대림대학교)
+  // 회원 정보를 아직 못 불러왔으면 비워 두고, 불러오면 채운다.
   static Set<String> _defaultSchools() {
+    final mine = CurrentMember.schoolFullName;
+    if (mine.isEmpty) return {};
     for (final school in schoolOptions) {
-      if (school.startsWith(SampleCurrentUser.school)) return {school};
+      if (school == mine) return {school};
     }
-    return {};
+    return {mine};
   }
 
   @override
   void initState() {
     super.initState();
+    ReviewService.start();
     ReviewService.changes.addListener(_onReviewsChanged);
   }
 
@@ -48,7 +53,9 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _onReviewsChanged() => setState(() {});
+  void _onReviewsChanged() => setState(() {
+    if (!_schoolPicked && _schools.isEmpty) _schools = _defaultSchools();
+  });
 
   List<Review> get _results {
     final list = ReviewService.searchReviews(
@@ -61,7 +68,11 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_isLatest) {
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } else {
-      list.sort((a, b) => b.likeCount.compareTo(a.likeCount));
+      list.sort(
+        (a, b) =>
+            ReviewService.likeCountOf(b)
+                .compareTo(ReviewService.likeCountOf(a)),
+      );
     }
     return list;
   }
@@ -74,6 +85,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _resetFilters() {
     setState(() {
       _controller.clear();
+      _schoolPicked = false;
       _schools = _defaultSchools();
       _departments = {};
       _categories = {};
@@ -230,12 +242,10 @@ class _SearchScreenState extends State<SearchScreen> {
             _FilterChip(
               label: '학교',
               selected: _schools,
-              onTap: () => _openFilter(
-                '학교',
-                schoolOptions,
-                _schools,
-                (v) => _schools = v,
-              ),
+              onTap: () => _openFilter('학교', schoolOptions, _schools, (v) {
+                _schoolPicked = true;
+                _schools = v;
+              }),
             ),
             const SizedBox(width: 7),
             _FilterChip(

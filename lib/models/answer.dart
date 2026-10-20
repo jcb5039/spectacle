@@ -30,6 +30,40 @@ class Answer {
   final int likeCount; // 좋아요(디자인: 도움돼요) 수
   final DateTime createdAt;
 
+  // Firestore answers 컬렉션에 저장할 모양 (문서 이름 = id)
+  Map<String, dynamic> toMap() {
+    return {
+      'questionId': questionId,
+      'content': content,
+      'authorId': authorId,
+      'authorName': authorName,
+      'authorSchool': authorSchool,
+      'authorDepartment': authorDepartment,
+      'authorCompany': authorCompany,
+      'authorJob': authorJob,
+      'likeCount': likeCount,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+    };
+  }
+
+  factory Answer.fromMap(String id, Map<String, dynamic> map) {
+    return Answer(
+      id: id,
+      questionId: map['questionId'] as String? ?? '',
+      content: map['content'] as String? ?? '',
+      authorId: map['authorId'] as String? ?? '',
+      authorName: map['authorName'] as String? ?? '',
+      authorSchool: map['authorSchool'] as String? ?? '',
+      authorDepartment: map['authorDepartment'] as String? ?? '',
+      authorCompany: map['authorCompany'] as String? ?? '',
+      authorJob: map['authorJob'] as String? ?? '',
+      likeCount: (map['likeCount'] as num? ?? 0).toInt(),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        (map['createdAt'] as num? ?? 0).toInt(),
+      ),
+    );
+  }
+
   // 디자인: "대림대 항공서비스 · 에어웨이브 · 객실승무원"
   String get authorInfo => [
     '$authorSchool $authorDepartment'.trim(),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
+import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/review_card.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
@@ -48,11 +49,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: 18,
                 bottom: 14,
                 child: _WriteButton(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ReviewWriteScreen(),
-                    ),
-                  ),
+                  onTap: () {
+                    // 후기는 인증된 선배(취업자)만 쓸 수 있다.
+                    // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다 (A의 미인증 안내 팝업 연결은 나중에)
+                    if (!CurrentMember.canWriteSeniorPost) {
+                      showBlackToast(
+                        context,
+                        '인증된 선배만 후기를 쓸 수 있어요',
+                        showCheck: false,
+                      );
+                      return;
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ReviewWriteScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
           ],
@@ -170,6 +183,7 @@ class _TodayViewState extends State<_TodayView> {
   @override
   void initState() {
     super.initState();
+    ReviewService.start();
     ReviewService.changes.addListener(_onReviewsChanged);
   }
 
@@ -407,6 +421,7 @@ class _DiscoverViewState extends State<_DiscoverView> {
   @override
   void initState() {
     super.initState();
+    ReviewService.start();
     ReviewService.changes.addListener(_onReviewsChanged);
   }
 

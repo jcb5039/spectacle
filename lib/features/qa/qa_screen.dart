@@ -23,6 +23,7 @@ class _QaScreenState extends State<QaScreen> {
   @override
   void initState() {
     super.initState();
+    QaService.start();
     QaService.changes.addListener(_onChanged);
   }
 

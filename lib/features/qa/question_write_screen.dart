@@ -26,6 +26,7 @@ class _QuestionWriteScreenState extends State<QuestionWriteScreen> {
   final _content = TextEditingController();
   String? _category;
   bool _showSchool = true;
+  bool _saving = false; // 저장 중에 "질문 등록"을 또 누르지 않게
 
   @override
   void initState() {
@@ -45,7 +46,8 @@ class _QuestionWriteScreenState extends State<QuestionWriteScreen> {
     if (leave && mounted) Navigator.of(context).pop();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_saving) return;
     final title = _title.text.trim();
     final content = _content.text.trim();
     if (_category == null) {
@@ -62,20 +64,31 @@ class _QuestionWriteScreenState extends State<QuestionWriteScreen> {
     }
 
     final question = Question(
-      id: 'q${DateTime.now().millisecondsSinceEpoch}',
+      id: QaService.newQuestionId(),
       category: _category!,
       title: title,
       content: content,
-      authorId: SampleCurrentUser.id,
-      authorName: SampleCurrentUser.name,
-      authorType: SampleCurrentUser.type,
-      authorSchool: SampleCurrentUser.school,
-      authorDepartment: SampleCurrentUser.department,
+      authorId: CurrentMember.id,
+      authorName: CurrentMember.name,
+      authorType: CurrentMember.type,
+      authorSchool: CurrentMember.school,
+      authorDepartment: CurrentMember.department,
       showSchool: _showSchool,
       createdAt: DateTime.now(),
     );
 
-    QaService.addQuestion(question);
+    setState(() => _saving = true);
+    try {
+      await QaService.addQuestion(question);
+    } catch (error) {
+      debugPrint('질문 저장 실패: $error');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다
+      showBlackToast(context, '질문을 저장하지 못했어요', showCheck: false);
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => QuestionDoneScreen(question: question)),
     );
@@ -136,8 +149,12 @@ class _QuestionWriteScreenState extends State<QuestionWriteScreen> {
   }
 
   Widget _buildSchoolToggle() {
-    const school = SampleCurrentUser.school;
-    const department = SampleCurrentUser.department;
+    // 회원 정보가 비어 있으면 "학교 · 학과"로 보여준다.
+    final schoolAndDepartment = [
+      CurrentMember.school,
+      CurrentMember.department,
+    ].where((t) => t.isNotEmpty).join(' · ');
+    final label = schoolAndDepartment.isEmpty ? '학교 · 학과' : schoolAndDepartment;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
@@ -166,7 +183,7 @@ class _QuestionWriteScreenState extends State<QuestionWriteScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '질문에 $school · $department${_subjectParticle(department)} 함께 표시돼요.',
+                      '질문에 $label${_subjectParticle(label)} 함께 표시돼요.',
                       style: const TextStyle(
                         fontSize: 10,
                         height: 1.5,
