@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../features/home/home_screen.dart';
 import '../features/my/my_screen.dart';
 import '../features/ranking/ranking_screen.dart';
+import '../features/search/search_screen.dart';
 import 'tab_bar_icons.dart';
 
 class MainTabScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   // 홈·검색·Q&A: B / 랭킹·MY: A
   static const List<Widget> _tabs = [
     HomeScreen(),
-    Center(child: Text('검색')),
+    SearchScreen(),
     Center(child: Text('Q&A')),
     RankingScreen(),
     MyScreen(),

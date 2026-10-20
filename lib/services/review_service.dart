@@ -91,7 +91,7 @@ class ReviewService {
       authorId: 'u1',
       authorName: '김민지',
       authorSchool: '대림대',
-      authorDepartment: '항공서비스',
+      authorDepartment: '호텔조리',
       authorAdmissionYear: '20',
       authorGraduationYear: '23',
       likeCount: 109,
@@ -106,13 +106,23 @@ class ReviewService {
       authorId: 'u1',
       authorName: '김민지',
       authorSchool: '대림대',
-      authorDepartment: '항공서비스',
+      authorDepartment: '제과제빵',
       authorAdmissionYear: '20',
       authorGraduationYear: '23',
       likeCount: 96,
       createdAt: DateTime(2026, 10, 16),
     ),
-    _withoutAuthor('r4', '보건·의료', '신규 간호사의 첫 병동 적응기', '서림메디컬', '간호사', 84, 15),
+    _withoutAuthor(
+      'r4',
+      '보건·의료',
+      '신규 간호사의 첫 병동 적응기',
+      '서림메디컬',
+      '간호사',
+      84,
+      15,
+      school: '대림대',
+      department: '간호학',
+    ),
     _withoutAuthor(
       'r5',
       '호텔·외식',
@@ -121,6 +131,8 @@ class ReviewService {
       '프런트 매니저',
       72,
       14,
+      school: '대림대',
+      department: '호텔관광',
     ),
     _withoutAuthor(
       'r6',
@@ -139,6 +151,8 @@ class ReviewService {
       'UI/UX 디자이너',
       0,
       12,
+      school: '대림대',
+      department: '시각디자인',
     ),
     _withoutAuthor(
       'r8',
@@ -148,6 +162,8 @@ class ReviewService {
       '프론트엔드 개발자',
       0,
       11,
+      school: '대림대',
+      department: '컴퓨터정보',
     ),
     _withoutAuthor(
       'r9',
@@ -157,6 +173,8 @@ class ReviewService {
       '회계 사무원',
       0,
       10,
+      school: '대림대',
+      department: '경영학',
     ),
   ];
 
@@ -186,6 +204,54 @@ class ReviewService {
       )
       .toList();
 
+  // 검색 화면: 검색어와 필터(학교·학과·직무·기업)로 후기를 앱 안에서 걸러낸다.
+  // 필터 묶음이 비어 있으면 그 필터는 적용하지 않는다(전체).
+  static List<Review> searchReviews({
+    String keyword = '',
+    Set<String> schools = const {},
+    Set<String> departments = const {},
+    Set<String> categories = const {},
+    Set<String> companies = const {},
+  }) {
+    final word = keyword.trim().toLowerCase();
+    final schoolKeys = schools.map(_schoolKey).toSet();
+
+    return sampleReviews.where((r) {
+      if (schoolKeys.isNotEmpty &&
+          !schoolKeys.contains(_schoolKey(r.authorSchool))) {
+        return false;
+      }
+      if (departments.isNotEmpty && !departments.contains(r.authorDepartment)) {
+        return false;
+      }
+      if (categories.isNotEmpty && !categories.contains(r.category)) {
+        return false;
+      }
+      if (companies.isNotEmpty && !companies.contains(r.company)) {
+        return false;
+      }
+      if (word.isEmpty) return true;
+      return [
+        r.title,
+        r.company,
+        r.job,
+        r.category,
+        r.authorDepartment,
+        ...r.hashtags,
+      ].any((text) => text.toLowerCase().contains(word));
+    }).toList();
+  }
+
+  // 검색 필터의 기업 목록 (후기에 적힌 회사 이름, 겹치지 않게)
+  static List<String> get companyNames => {
+    for (final r in sampleReviews)
+      if (r.company.isNotEmpty) r.company,
+  }.toList();
+
+  // 학교 이름 비교용: "대림대학교"와 "대림대"를 같은 학교로 본다.
+  static String _schoolKey(String school) =>
+      school.endsWith('학교') ? school.substring(0, school.length - 2) : school;
+
   static Review _withoutAuthor(
     String id,
     String category,
@@ -193,8 +259,10 @@ class ReviewService {
     String company,
     String job,
     int likeCount,
-    int day,
-  ) {
+    int day, {
+    String school = '',
+    String department = '',
+  }) {
     return Review(
       id: id,
       category: category,
@@ -203,8 +271,8 @@ class ReviewService {
       job: job,
       authorId: '',
       authorName: '',
-      authorSchool: '',
-      authorDepartment: '',
+      authorSchool: school,
+      authorDepartment: department,
       authorAdmissionYear: '',
       authorGraduationYear: '',
       likeCount: likeCount,
