@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/photo_service.dart';
 import '../../services/ranking_service.dart';
 import '../../services/user_service.dart';
+import '../auth/login_screen.dart';
 import '../auth/widgets/auth_widgets.dart';
 import 'info_edit_screen.dart';
 import 'spec_edit_screen.dart';
@@ -72,8 +73,9 @@ class _MyScreenState extends State<MyScreen> {
       backgroundColor: AuthColors.white,
       body: SafeArea(
         bottom: false,
+        // 회원 정보가 없어도(가입을 끝내지 않은 계정) 로그아웃은 할 수 있게 버튼만 보여준다
         child: user == null
-            ? const SizedBox.shrink()
+            ? Align(alignment: Alignment.bottomLeft, child: _buildLogout())
             : ListView(
                 padding: EdgeInsets.zero,
                 children: [
@@ -102,6 +104,10 @@ class _MyScreenState extends State<MyScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                     child: _buildList(user),
                   ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildLogout(),
+                  ),
                 ],
               ),
       ),
@@ -109,7 +115,7 @@ class _MyScreenState extends State<MyScreen> {
   }
 
   Widget _buildProfile(AppUser user) {
-    final name = user.name ?? '회원';
+    final name = user.nickname ?? '회원';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
@@ -415,6 +421,37 @@ class _MyScreenState extends State<MyScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // 맨 아래 왼쪽 로그아웃 (디자인에 없어서 작은 회색 글자 버튼으로 추가)
+  Widget _buildLogout() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _logout,
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Text(
+          '로그아웃',
+          style: TextStyle(
+            color: AuthColors.gray77,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.underline,
+            decorationColor: AuthColors.gray77,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 로그아웃하고 하단 탭을 모두 닫은 뒤 로그인 화면으로
+  Future<void> _logout() async {
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 

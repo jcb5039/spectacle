@@ -21,7 +21,7 @@ class InfoEditScreen extends StatefulWidget {
 
 class _InfoEditScreenState extends State<InfoEditScreen> {
   late final AppUser _user = widget.user;
-  late final _name = TextEditingController(text: _user.name);
+  late final _nickname = TextEditingController(text: _user.nickname);
   late final _email = TextEditingController(text: _user.email);
   late final _phone = TextEditingController(text: _user.phone);
   late final _school = TextEditingController(text: _user.school);
@@ -40,7 +40,7 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
   Uint8List? _newPhoto;
 
   List<TextEditingController> get _controllers => [
-    _name,
+    _nickname,
     _email,
     _phone,
     _school,
@@ -75,9 +75,17 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
   }
 
   Future<void> _save() async {
+    // 닉네임이 바뀌었으면 글자 규칙과 중복을 확인한다 (디자인에 없는 상황이라 임시로 아래쪽 안내 문구)
+    final nickname = _nickname.text.trim();
+    final changed = nickname != (_user.nickname ?? '');
+    final problem = changed ? nicknameProblem(nickname) : null;
+    if (problem != null) {
+      _notice(problem);
+      return;
+    }
+    // 이메일은 로그인 계정이라 여기서 바꾸지 않는다
     final updated = _user.copyWith(
-      name: _name.text.trim(),
-      email: _email.text.trim(),
+      nickname: nickname,
       phone: _phone.text.trim(),
       school: _school.text.trim(),
       department: _department.text.trim(),
@@ -88,15 +96,32 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
       showCompany: _showCompany,
       allowQuestions: _allowQuestions,
     );
-    await UserService.instance.saveUser(updated);
-    final newPhoto = _newPhoto;
-    if (newPhoto != null) {
-      await PhotoService.instance.uploadProfilePhoto(
-        userId: _user.id,
-        bytes: newPhoto,
+    try {
+      await UserService.instance.updateUser(
+        updated,
+        oldNickname: _user.nickname,
       );
+      final newPhoto = _newPhoto;
+      if (newPhoto != null) {
+        await PhotoService.instance.uploadProfilePhoto(
+          userId: _user.id,
+          bytes: newPhoto,
+        );
+      }
+    } on NicknameTakenException catch (error) {
+      _notice(error.toString());
+      return;
+    } catch (_) {
+      _notice('저장하지 못했어요. 잠시 후 다시 시도해주세요.');
+      return;
     }
     if (mounted) Navigator.pop(context);
+  }
+
+  void _notice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -117,8 +142,8 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
                   SettingsSection(
                     title: '기본 정보',
                     children: [
-                      _field('이름', _name),
-                      _field('이메일', _email, TextInputType.emailAddress),
+                      _field('닉네임', _nickname),
+                      _fieldWith('이메일', _email, readOnly: true),
                       _field('휴대폰 번호', _phone, TextInputType.phone),
                     ],
                   ),
@@ -196,7 +221,7 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
       child: Column(
         children: [
           ProfileAvatar(
-            name: _name.text.isEmpty ? '회원' : _name.text,
+            name: _nickname.text.isEmpty ? '회원' : _nickname.text,
             size: 82,
             fontSize: 22,
             photo: _newPhoto ?? _photo,
@@ -222,12 +247,20 @@ class _InfoEditScreenState extends State<InfoEditScreen> {
     String label,
     TextEditingController controller, [
     TextInputType? keyboardType,
-  ]) {
+  ]) => _fieldWith(label, controller, keyboardType: keyboardType);
+
+  Widget _fieldWith(
+    String label,
+    TextEditingController controller, {
+    TextInputType? keyboardType,
+    bool readOnly = false,
+  }) {
     return UnderlineTextField(
       label: label,
       hint: '',
       controller: controller,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       padding: const EdgeInsets.fromLTRB(0, 15, 0, 13),
     );
   }

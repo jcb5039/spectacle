@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../../services/auth_service.dart';
+import '../../../services/user_service.dart';
 import 'auth_widgets.dart';
 
 // 이메일 입력칸 + 오른쪽 "인증 메일 보내기 / 재전송" 버튼
@@ -62,9 +63,11 @@ class EmailVerifyField extends StatelessWidget {
 }
 
 // "인증 메일 보내기 / 재전송"을 눌렀을 때: 처음이면 계정을 만들고 메일을 보내고, 이미 보냈으면 다시 보낸다.
-// 보냈으면 true. 이메일·비밀번호가 비었거나 맞지 않으면 아래쪽 안내 문구를 띄우고 false
+// 보냈으면 true. 닉네임·비밀번호·이메일이 비었거나 맞지 않으면 아래쪽 안내 문구를 띄우고 false
+// (닉네임 중복은 여기서 미리 알려주고, 실제 등록은 "가입하기"를 누를 때 한다)
 Future<bool> sendSignUpVerification(
   BuildContext context, {
+  required String nickname,
   required String email,
   required String password,
   required String confirm,
@@ -79,13 +82,22 @@ Future<bool> sendSignUpVerification(
       await AuthService.instance.resendVerificationEmail();
       return true;
     }
-    if (email.isEmpty) {
-      notice('이메일을 입력해주세요.');
+    final nicknameError = await checkNickname(nickname);
+    if (nicknameError != null) {
+      notice(nicknameError);
+      return false;
+    }
+    if (password.isEmpty) {
+      notice('비밀번호를 먼저 설정해주세요.');
       return false;
     }
     final passwordError = PasswordFields.validate(password, confirm);
     if (passwordError != null) {
       notice(passwordError);
+      return false;
+    }
+    if (email.isEmpty) {
+      notice('이메일을 입력해주세요.');
       return false;
     }
     await AuthService.instance.createAccountAndSendVerification(
@@ -96,6 +108,39 @@ Future<bool> sendSignUpVerification(
   } on AuthFailure catch (failure) {
     notice(failure.message);
     return false;
+  }
+}
+
+// 닉네임 글자 규칙과 중복을 확인한다. 문제가 있으면 안내 문구, 괜찮으면 null
+Future<String?> checkNickname(String nickname) async {
+  final problem = nicknameProblem(nickname);
+  if (problem != null) return problem;
+  try {
+    if (await UserService.instance.isNicknameTaken(nickname)) {
+      return const NicknameTakenException().toString();
+    }
+  } catch (_) {
+    return '닉네임을 확인하지 못했어요. 잠시 후 다시 시도해주세요.';
+  }
+  return null;
+}
+
+// 닉네임 입력칸 (디자인에 없어서 다른 입력칸과 같은 모양으로 추가, 비밀번호 칸 위)
+class NicknameField extends StatelessWidget {
+  const NicknameField({super.key, required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: UnderlineTextField(
+        label: '닉네임',
+        hint: '2~10자로 입력해주세요',
+        controller: controller,
+      ),
+    );
   }
 }
 

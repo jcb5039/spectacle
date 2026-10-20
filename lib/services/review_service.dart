@@ -44,9 +44,9 @@ class CurrentMember {
     QaService.changes.value++;
   }
 
-  // 회원가입에서 아직 이름을 받지 않아 비어 있으면 "회원"
+  // 글에 보이는 작성자 이름 = 회원 닉네임. 회원 정보가 없으면 "회원"
   static String get name {
-    final name = _user?.name?.trim() ?? '';
+    final name = _user?.nickname?.trim() ?? '';
     return name.isEmpty ? '회원' : name;
   }
 

@@ -23,6 +23,7 @@ class SignUpVerifyScreen extends StatefulWidget {
 }
 
 class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
+  final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -31,6 +32,7 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
 
   @override
   void dispose() {
+    _nicknameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -40,6 +42,7 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
   Future<void> _sendEmail() async {
     final sent = await sendSignUpVerification(
       context,
+      nickname: _nicknameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
       confirm: _confirmController.text,
@@ -63,22 +66,45 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
           .showSnackBar(const SnackBar(content: Text('인증 메일을 먼저 보내주세요.')));
       return;
     }
-    final data = widget.data..email = _emailController.text.trim();
+    final nickname = _nicknameController.text.trim();
+    final nicknameError = nicknameProblem(nickname);
+    if (nicknameError != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(nicknameError)));
+      return;
+    }
+    final data = widget.data
+      ..email = _emailController.text.trim()
+      ..nickname = nickname;
     final userId = AuthService.instance.currentUserId ?? 'local-user';
-    await UserService.instance.saveUser(
-      data.toAppUser(
-        id: userId,
-        status: VerificationStatus.pending,
-        method: VerificationMethod.certificate,
-      ),
-    );
     final certificate = _certificate;
-    if (certificate != null) {
-      await PhotoService.instance.uploadCertificate(
-        userId: userId,
-        memberType: data.memberType,
-        bytes: certificate,
+    try {
+      await UserService.instance.createUser(
+        data.toAppUser(
+          id: userId,
+          status: VerificationStatus.pending,
+          method: VerificationMethod.certificate,
+        ),
       );
+      if (certificate != null) {
+        await PhotoService.instance.uploadCertificate(
+          userId: userId,
+          memberType: data.memberType,
+          bytes: certificate,
+        );
+      }
+    } on NicknameTakenException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+      return;
+    } catch (_) {
+      // 디자인에 없는 상황이라 임시로 아래쪽 안내 문구를 띄운다
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('가입하지 못했어요. 잠시 후 다시 시도해주세요.')),
+      );
+      return;
     }
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
@@ -103,6 +129,12 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
           title: '취업 정보를\n인증해주세요.',
           description: '안전하고 신뢰할 수 있는 커뮤니티를 위한 마지막 단계예요.',
         ),
+        NicknameField(controller: _nicknameController),
+        // 인증 메일을 보낼 때 계정이 만들어지므로 비밀번호를 먼저 받는다
+        PasswordFields(
+          password: _passwordController,
+          confirm: _confirmController,
+        ),
         EmailVerifyField(
           label: '회사 이메일',
           hint: 'name@company.com',
@@ -111,10 +143,6 @@ class _SignUpVerifyScreenState extends State<SignUpVerifyScreen> {
           helpText: '메일의 인증 링크를 누르면 완료돼요.',
           sentHelpText: '메일의 링크를 눌러 인증을 완료해 주세요.',
           onSend: _sendEmail,
-        ),
-        PasswordFields(
-          password: _passwordController,
-          confirm: _confirmController,
         ),
         if (certificate == null)
           CertificateUploadBox(

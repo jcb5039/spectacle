@@ -29,6 +29,9 @@ abstract class AuthService {
 
   // 인증 링크를 눌렀는지 확인
   Future<bool> isEmailVerified();
+
+  // 앱을 켤 때: 폰에 로그인 기록이 있어도 서버에서 계정이 지워졌거나 정지됐으면 로그아웃하고 false
+  Future<bool> checkSignedIn();
 }
 
 // 로그인·가입 실패. message는 화면에 그대로 보여줄 수 있는 문구
@@ -95,7 +98,29 @@ class FirebaseAuthService implements AuthService {
     if (user == null) return false;
     // 메일의 링크를 누른 결과는 다시 불러와야 반영된다
     await user.reload();
-    return _auth.currentUser?.emailVerified ?? false;
+    final verified = _auth.currentUser?.emailVerified ?? false;
+    // 서버(Firestore)는 로그인 출입증(ID 토큰)에 적힌 인증 여부를 본다.
+    // 출입증은 1시간마다 바뀌므로, 인증됐으면 바로 새로 받아야 "인증 완료"로 저장할 수 있다
+    if (verified) await _auth.currentUser?.getIdToken(true);
+    return verified;
+  }
+
+  @override
+  Future<bool> checkSignedIn() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.reload();
+      return true;
+    } on FirebaseAuthException catch (error) {
+      const gone = {'user-not-found', 'user-disabled', 'user-token-expired'};
+      if (!gone.contains(error.code)) {
+        // 인터넷이 끊긴 경우 등은 계정 문제가 아니므로 로그인 상태를 유지한다
+        return true;
+      }
+      await _auth.signOut();
+      return false;
+    }
   }
 
   // Firebase 오류를 화면에 보여줄 한국어 문구로 바꾼다
@@ -167,4 +192,7 @@ class FakeAuthService implements AuthService {
 
   @override
   Future<bool> isEmailVerified() async => true;
+
+  @override
+  Future<bool> checkSignedIn() async => isSignedIn;
 }

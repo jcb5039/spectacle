@@ -33,12 +33,13 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // 로그인되어 있으면 홈(하단 탭), 아니면 로그인 화면
-  void _goNext() {
+  // (서버에서 지워진 계정이면 로그아웃되어 로그인 화면으로 간다)
+  Future<void> _goNext() async {
     if (_moved || !mounted) return;
     _moved = true;
-    final next = AuthService.instance.isSignedIn
-        ? const MainTabScreen()
-        : const LoginScreen();
+    final signedIn = await AuthService.instance.checkSignedIn();
+    if (!mounted) return;
+    final next = signedIn ? const MainTabScreen() : const LoginScreen();
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
