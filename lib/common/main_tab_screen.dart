@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../features/home/home_screen.dart';
 import '../features/my/my_screen.dart';
+import '../features/qa/qa_screen.dart';
 import '../features/ranking/ranking_screen.dart';
 import '../features/search/search_screen.dart';
 import 'tab_bar_icons.dart';
@@ -22,7 +23,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   static const List<Widget> _tabs = [
     HomeScreen(),
     SearchScreen(),
-    Center(child: Text('Q&A')),
+    QaScreen(),
     RankingScreen(),
     MyScreen(),
   ];
