@@ -9,6 +9,7 @@ import '../../models/answer.dart';
 import '../../models/question.dart';
 import '../../services/qa_service.dart';
 import '../../services/review_service.dart';
+import '../auth/widgets/restricted_dialog.dart';
 import '../review/senior_profile_screen.dart';
 
 // 어느 화면에서든 Q&A 상세를 여는 함수
@@ -83,7 +84,13 @@ class _QaDetailScreenState extends State<QaDetailScreen> {
     final content = _answerController.text.trim();
     if (content.isEmpty || _saving) return;
     // 답변은 인증된 선배(취업자)만 쓸 수 있다.
-    // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다 (A의 미인증 안내 팝업 연결은 나중에)
+    // 인증 전이면 미인증 안내 팝업(A, 디자인: Restricted)
+    if (!CurrentMember.isVerified) {
+      _answerFocus.unfocus();
+      showRestrictedDialog(context);
+      return;
+    }
+    // 인증된 재학생: 디자인에 없는 상황이라 임시로 알림 띠를 띄운다
     if (!CurrentMember.canWriteSeniorPost) {
       showBlackToast(context, '인증된 선배만 답변할 수 있어요', showCheck: false);
       return;
@@ -475,9 +482,8 @@ class _QaDetailScreenState extends State<QaDetailScreen> {
   );
 }
 
-// 성을 뺀 이름 첫 글자 (디자인: 이서연 → 서, 김민지 → 민)
-String _avatarLetter(String name) =>
-    name.length > 1 ? name.substring(1, 2) : name;
+// 닉네임 첫 글자 (MY 화면과 같은 규칙. 예: 윤혁주 → 윤, TestSenior → T)
+String _avatarLetter(String name) => name.isEmpty ? '' : name.characters.first;
 
 // 선배 답변 한 칸: 작성자, 내용, 도움돼요
 class _AnswerCard extends StatelessWidget {

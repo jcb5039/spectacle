@@ -831,8 +831,8 @@ class ReviewAuthorAvatar extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Text(
-        // 성을 뺀 이름 첫 글자 (디자인: 김민지 → 민)
-        name.length > 1 ? name.substring(1, 2) : name,
+        // 닉네임 첫 글자 (MY 화면과 같은 규칙. 예: 윤혁주 → 윤, TestSenior → T)
+        name.isEmpty ? '' : name.characters.first,
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w800,

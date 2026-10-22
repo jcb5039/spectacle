@@ -76,7 +76,9 @@ class Review {
   final int likeCount; // 좋아요(디자인: 도움돼요) 수
   final DateTime createdAt;
 
-  String get companyAndJob => '$company · $job';
+  // 디자인: "에어웨이브 · 객실승무원". 비어 있는 값은 빼고 잇는다.
+  String get companyAndJob =>
+      [company, job].where((t) => t.isNotEmpty).join(' · ');
 
   // Firestore reviews 컬렉션에 저장할 모양 (문서 이름 = id)
   // 날짜는 회원 정보(users)처럼 밀리초 숫자로 저장한다.
