@@ -44,6 +44,11 @@ class AuthFailure implements Exception {
   String toString() => message;
 }
 
+// 이미 그 이메일로 만든 계정이 있을 때. 가입을 끝내지 못한 본인 계정이면 화면에서 이어서 가입한다
+class EmailInUseFailure extends AuthFailure {
+  const EmailInUseFailure() : super('이미 가입된 이메일이에요.');
+}
+
 // 실제 Firebase Authentication을 쓰는 기능
 class FirebaseAuthService implements AuthService {
   FirebaseAuth get _auth => FirebaseAuth.instance;
@@ -76,12 +81,16 @@ class FirebaseAuthService implements AuthService {
       email: email,
       password: password,
     );
+    // 인증 메일을 한국어로 보낸다
+    await _auth.setLanguageCode('ko');
     await credential.user?.sendEmailVerification();
   });
 
   @override
-  Future<void> resendVerificationEmail() =>
-      _run(() async => _auth.currentUser?.sendEmailVerification());
+  Future<void> resendVerificationEmail() => _run(() async {
+    await _auth.setLanguageCode('ko');
+    await _auth.currentUser?.sendEmailVerification();
+  });
 
   @override
   Future<void> createAccount({
@@ -128,8 +137,8 @@ class FirebaseAuthService implements AuthService {
     try {
       await action();
     } on FirebaseAuthException catch (error) {
+      if (error.code == 'email-already-in-use') throw const EmailInUseFailure();
       throw AuthFailure(switch (error.code) {
-        'email-already-in-use' => '이미 가입된 이메일이에요.',
         'invalid-email' => '이메일 형식을 확인해주세요.',
         'weak-password' => '비밀번호를 더 길게 만들어주세요.',
         'user-not-found' ||
