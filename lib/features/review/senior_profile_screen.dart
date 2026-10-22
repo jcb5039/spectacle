@@ -5,6 +5,7 @@ import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
+import '../../services/qa_service.dart';
 import '../../services/review_service.dart';
 import '../qa/question_write_screen.dart';
 import 'review_detail_screen.dart';
@@ -184,8 +185,8 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
         children: [
           stat('$reviewCount', '후기', leftLine: false),
           stat('$likeTotal', '받은 도움돼요'),
-          // 답변 수는 Q&A 데이터를 만든 뒤 연결한다.
-          stat('0', '답변'),
+          // 이 선배가 Q&A에 남긴 답변 수 (답변 탭 목록은 디자인이 나오면 만든다)
+          stat('${QaService.answersByAuthor(review.authorId).length}', '답변'),
         ],
       ),
     );

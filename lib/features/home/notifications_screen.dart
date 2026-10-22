@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
+import '../../services/qa_service.dart';
 import '../../services/review_service.dart';
+import '../qa/qa_detail_screen.dart';
 import '../review/review_detail_screen.dart';
 
 // 실제 알림 기능은 만들지 않으므로 디자인의 예시 알림을 그대로 보여준다.
@@ -15,6 +17,7 @@ class _NotificationItem {
     required this.time,
     this.unread = false,
     this.reviewId,
+    this.questionId,
   });
 
   final IconData icon;
@@ -22,7 +25,8 @@ class _NotificationItem {
   final String body;
   final String time;
   final bool unread;
-  final String? reviewId; // 누르면 열 후기 (없으면 아직 연결할 화면이 없음)
+  final String? reviewId; // 누르면 열 후기
+  final String? questionId; // 누르면 열 질문
 }
 
 const List<_NotificationItem> _sampleNotifications = [
@@ -32,6 +36,8 @@ const List<_NotificationItem> _sampleNotifications = [
     body: '박준호 선배가 질문에 답변을 남겼어요.',
     time: '방금',
     unread: true,
+    // 예시 알림이라, 답변이 달린 예시 질문(항공사 면접 영어 답변)으로 연결한다.
+    questionId: 'q1',
   ),
   _NotificationItem(
     icon: Icons.favorite_border,
@@ -117,14 +123,18 @@ class NotificationsScreen extends StatelessWidget {
 
   Widget _buildItem(BuildContext context, _NotificationItem item) {
     return InkWell(
-      // Q&A 상세는 아직 없어서 후기 알림만 이동한다.
+      // 후기 알림은 후기 상세로, 답변 알림은 Q&A 상세로 간다.
       onTap: () {
-        final id = item.reviewId;
-        if (id == null) return;
-        openReviewDetail(
-          context,
-          ReviewService.sampleReviews.firstWhere((r) => r.id == id),
-        );
+        final reviewId = item.reviewId;
+        if (reviewId != null) {
+          openReviewDetail(
+            context,
+            ReviewService.sampleReviews.firstWhere((r) => r.id == reviewId),
+          );
+          return;
+        }
+        final question = QaService.findQuestion(item.questionId);
+        if (question != null) openQaDetail(context, question);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18),
