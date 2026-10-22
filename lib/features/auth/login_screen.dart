@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../common/main_tab_screen.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
 import 'signup_type_screen.dart';
 import 'widgets/auth_widgets.dart';
 
@@ -30,6 +31,18 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      // 인증 메일만 보내고 가입을 끝내지 못한 계정은 회원 정보가 없어서 들여보내지 않는다
+      if (!await _hasProfile()) {
+        await AuthService.instance.signOut();
+        if (!mounted) return;
+        // 디자인에 없는 상황이라 임시로 아래쪽 안내 문구를 띄운다
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('가입이 끝나지 않은 계정이에요. 같은 이메일과 비밀번호로 회원가입을 다시 진행해주세요.'),
+          ),
+        );
+        return;
+      }
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -41,6 +54,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(failure.message)));
+    }
+  }
+
+  // 회원 정보가 있는지. 인터넷이 끊겨 확인하지 못하면 정상 회원이 막히지 않게 있다고 본다
+  Future<bool> _hasProfile() async {
+    final userId = AuthService.instance.currentUserId;
+    if (userId == null) return false;
+    try {
+      return await UserService.instance.getUser(userId) != null;
+    } catch (_) {
+      return true;
     }
   }
 

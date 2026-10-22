@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../common/main_tab_screen.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
 import 'login_screen.dart';
 import 'widgets/auth_widgets.dart';
 
@@ -34,10 +35,15 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // 로그인되어 있으면 홈(하단 탭), 아니면 로그인 화면
   // (서버에서 지워진 계정이면 로그아웃되어 로그인 화면으로 간다)
+  // (회원 정보가 없는, 가입을 끝내지 못한 계정도 로그아웃되어 로그인 화면으로 간다)
   Future<void> _goNext() async {
     if (_moved || !mounted) return;
     _moved = true;
-    final signedIn = await AuthService.instance.checkSignedIn();
+    var signedIn = await AuthService.instance.checkSignedIn();
+    if (signedIn && !await _hasProfile()) {
+      await AuthService.instance.signOut();
+      signedIn = false;
+    }
     if (!mounted) return;
     final next = signedIn ? const MainTabScreen() : const LoginScreen();
     Navigator.pushReplacement(
@@ -48,6 +54,17 @@ class _SplashScreenState extends State<SplashScreen> {
             FadeTransition(opacity: animation, child: child),
       ),
     );
+  }
+
+  // 회원 정보가 있는지. 인터넷이 끊겨 확인하지 못하면 정상 회원이 쫓겨나지 않게 있다고 본다
+  Future<bool> _hasProfile() async {
+    final userId = AuthService.instance.currentUserId;
+    if (userId == null) return false;
+    try {
+      return await UserService.instance.getUser(userId) != null;
+    } catch (_) {
+      return true;
+    }
   }
 
   @override
