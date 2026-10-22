@@ -11,12 +11,35 @@ import 'tab_bar_icons.dart';
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
 
+  // 다른 화면에서 하단 탭을 바꿀 때 쓴다. 값에 탭 번호(0 홈 ~ 4 MY)를 넣는다.
+  // (B: 후기 상세의 "같은 학과 선배 후기 → 전체보기"가 홈 DISCOVER로 갈 때 사용)
+  static final ValueNotifier<int?> tabRequest = ValueNotifier(null);
+
   @override
   State<MainTabScreen> createState() => _MainTabScreenState();
 }
 
 class _MainTabScreenState extends State<MainTabScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    MainTabScreen.tabRequest.addListener(_onTabRequest);
+  }
+
+  @override
+  void dispose() {
+    MainTabScreen.tabRequest.removeListener(_onTabRequest);
+    super.dispose();
+  }
+
+  void _onTabRequest() {
+    final index = MainTabScreen.tabRequest.value;
+    if (index == null) return;
+    MainTabScreen.tabRequest.value = null;
+    setState(() => _currentIndex = index);
+  }
 
   // B가 검색·Q&A 화면을 만들면 Center(...)를 실제 화면으로 바꾼다.
   // 홈·검색·Q&A: B / 랭킹·MY: A

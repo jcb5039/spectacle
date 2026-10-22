@@ -8,7 +8,8 @@ import '../../../services/user_service.dart';
 import 'auth_widgets.dart';
 
 // 이메일 입력칸 + 오른쪽 "인증 메일 보내기 / 재전송" 버튼
-class EmailVerifyField extends StatelessWidget {
+// 메일을 보낸 뒤 앱으로 돌아오면(링크를 누르고 온 경우) 인증 여부를 저절로 확인한다
+class EmailVerifyField extends StatefulWidget {
   const EmailVerifyField({
     super.key,
     required this.label,
@@ -29,7 +30,44 @@ class EmailVerifyField extends StatelessWidget {
   final VoidCallback onSend;
 
   @override
+  State<EmailVerifyField> createState() => _EmailVerifyFieldState();
+}
+
+class _EmailVerifyFieldState extends State<EmailVerifyField> {
+  late final AppLifecycleListener _lifecycle;
+  bool _verified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _checkVerified);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkVerified() async {
+    if (!widget.sent || _verified) return;
+    bool verified;
+    try {
+      verified = await AuthService.instance.isEmailVerified();
+    } catch (_) {
+      // 인터넷이 끊긴 경우 등은 조용히 넘어가고, "가입하기"를 누를 때 다시 확인한다
+      return;
+    }
+    if (!verified || !mounted) return;
+    setState(() => _verified = true);
+    // 디자인에 없는 상황이라 다른 안내와 같은 아래쪽 안내 문구를 띄운다
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('이메일 인증이 완료됐어요.')));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sent = widget.sent;
     return Padding(
       padding: const EdgeInsets.only(top: 29),
       child: Column(
@@ -38,22 +76,26 @@ class EmailVerifyField extends StatelessWidget {
           Stack(
             children: [
               UnderlineTextField(
-                label: label,
-                hint: hint,
-                controller: controller,
+                label: widget.label,
+                hint: widget.hint,
+                controller: widget.controller,
                 keyboardType: TextInputType.emailAddress,
                 padding: const EdgeInsets.fromLTRB(0, 17, 118, 13),
               ),
               Positioned(
                 top: 28,
                 right: 0,
-                child: _SendButton(sent: sent, onPressed: onSend),
+                child: _SendButton(sent: sent, onPressed: widget.onSend),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            sent ? sentHelpText : helpText,
+            _verified
+                ? '이메일 인증이 완료됐어요.'
+                : sent
+                ? widget.sentHelpText
+                : widget.helpText,
             style: const TextStyle(color: AuthColors.gray8E, fontSize: 10),
           ),
         ],
@@ -80,6 +122,7 @@ Future<bool> sendSignUpVerification(
   try {
     if (alreadySent) {
       await AuthService.instance.resendVerificationEmail();
+      notice('인증 메일을 다시 보냈어요. 메일함을 확인해주세요.');
       return true;
     }
     final nicknameError = await checkNickname(nickname);
@@ -100,15 +143,56 @@ Future<bool> sendSignUpVerification(
       notice('이메일을 입력해주세요.');
       return false;
     }
-    await AuthService.instance.createAccountAndSendVerification(
-      email: email,
-      password: password,
-    );
+    try {
+      await AuthService.instance.createAccountAndSendVerification(
+        email: email,
+        password: password,
+      );
+    } on EmailInUseFailure {
+      if (!await resumeUnfinishedSignUp(email: email, password: password)) {
+        rethrow;
+      }
+      // 이미 링크를 눌렀으면 메일을 다시 보내지 않는다
+      var verified = false;
+      try {
+        verified = await AuthService.instance.isEmailVerified();
+      } catch (_) {}
+      if (verified) {
+        notice('이미 인증된 이메일이에요. 가입을 이어서 진행해주세요.');
+        return true;
+      }
+      await AuthService.instance.resendVerificationEmail();
+    }
+    notice('인증 메일을 보냈어요. 메일함을 확인해주세요.');
     return true;
   } on AuthFailure catch (failure) {
     notice(failure.message);
     return false;
   }
+}
+
+// 이미 가입된 이메일일 때: 같은 비밀번호로 로그인해 보고, 회원 정보가 없으면
+// 인증 메일만 보내고 가입을 끝내지 못한 본인 계정이라 그 계정으로 이어서 가입한다.
+// 이어서 가입할 수 있으면 true. 정상 회원 계정이거나 비밀번호가 다르면 false
+Future<bool> resumeUnfinishedSignUp({
+  required String email,
+  required String password,
+}) async {
+  try {
+    await AuthService.instance.signIn(email: email, password: password);
+  } on AuthFailure {
+    return false;
+  }
+  final userId = AuthService.instance.currentUserId;
+  try {
+    if (userId != null && await UserService.instance.getUser(userId) == null) {
+      return true;
+    }
+  } catch (_) {
+    // 회원 정보를 확인하지 못하면 이어서 가입하지 않는다
+  }
+  await AuthService.instance.signOut();
+  return false;
 }
 
 // 닉네임 글자 규칙과 중복을 확인한다. 문제가 있으면 안내 문구, 괜찮으면 null

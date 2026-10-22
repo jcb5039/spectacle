@@ -65,6 +65,15 @@ class QaService {
         );
   }
 
+  // 알림 등에서 질문 id로 찾기 (없으면 null)
+  static Question? findQuestion(String? id) {
+    if (id == null) return null;
+    for (final q in allQuestions) {
+      if (q.id == id) return q;
+    }
+    return null;
+  }
+
   static String newQuestionId() => firebaseReady
       ? _db.collection('questions').doc().id
       : 'q${DateTime.now().millisecondsSinceEpoch}';
@@ -123,6 +132,14 @@ class QaService {
     if (showSampleData) ..._sampleAnswers,
     ..._serverAnswers,
   ].where((a) => a.questionId == questionId).toList();
+
+  // 선배 프로필의 답변 수: 그 선배가 쓴 답변 (작성자 id가 없으면 0)
+  static List<Answer> answersByAuthor(String authorId) => authorId.isEmpty
+      ? []
+      : [
+          if (showSampleData) ..._sampleAnswers,
+          ..._serverAnswers,
+        ].where((a) => a.authorId == authorId).toList();
 
   // 답변 수는 실제 답변 개수로 센다.
   static int answerCountOf(String questionId) => answersOf(questionId).length;

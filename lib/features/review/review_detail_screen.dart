@@ -8,6 +8,7 @@ import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/verified_badge.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
+import '../home/home_screen.dart';
 import '../qa/question_write_screen.dart';
 import 'link_browser_screen.dart';
 import 'senior_profile_screen.dart';
@@ -488,9 +489,8 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
               children: [
                 const Text('같은 학과 선배 후기', style: AppTextStyles.sectionTitle),
                 GestureDetector(
-                  // 홈으로 돌아간다.
-                  onTap: () =>
-                      Navigator.of(context).popUntil((route) => route.isFirst),
+                  // 디자인: 홈 DISCOVER로 간다.
+                  onTap: () => openHomeDiscover(context),
                   child: const Text(
                     '전체보기',
                     style: TextStyle(

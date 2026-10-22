@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../common/theme/app_colors.dart';
 import '../../common/theme/app_text_styles.dart';
+import '../../common/main_tab_screen.dart';
 import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/review_card.dart';
 import '../../common/widgets/verified_badge.dart';
@@ -17,8 +18,19 @@ import 'widgets/banner_slider.dart';
 
 const List<String> _jobCategories = ['전체', ...ReviewService.jobCategories];
 
+// 어느 화면에서든 홈 DISCOVER로 가기: 쌓인 화면을 닫고, 하단 탭을 홈으로, 홈 안 탭을 DISCOVER로
+// (디자인: 후기 상세의 "같은 학과 선배 후기 → 전체보기"가 Discover로 연결)
+void openHomeDiscover(BuildContext context) {
+  Navigator.of(context).popUntil((route) => route.isFirst);
+  MainTabScreen.tabRequest.value = 0;
+  HomeScreen.discoverRequest.value++;
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  // 값이 바뀌면 홈 안 탭을 DISCOVER로 바꾼다.
+  static final ValueNotifier<int> discoverRequest = ValueNotifier(0);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -26,6 +38,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isToday = true;
+
+  @override
+  void initState() {
+    super.initState();
+    HomeScreen.discoverRequest.addListener(_showDiscover);
+  }
+
+  @override
+  void dispose() {
+    HomeScreen.discoverRequest.removeListener(_showDiscover);
+    super.dispose();
+  }
+
+  void _showDiscover() => setState(() => _isToday = false);
 
   @override
   Widget build(BuildContext context) {

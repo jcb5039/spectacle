@@ -45,7 +45,18 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
     super.dispose();
   }
 
+  // 학교 이메일은 대학 메일 주소(.ac.kr로 끝남)만 받는다
+  static bool _isSchoolEmail(String email) =>
+      email.trim().toLowerCase().endsWith('.ac.kr');
+
+  static const _schoolEmailOnly = '학교 이메일(ac.kr)로만 인증할 수 있어요.';
+
   Future<void> _sendEmail() async {
+    // 개인 메일이면 계정을 만들거나 메일을 보내지 않는다
+    if (!_emailSent && !_isSchoolEmail(_emailController.text)) {
+      _notice(_schoolEmailOnly);
+      return;
+    }
     final sent = await sendSignUpVerification(
       context,
       nickname: _nicknameController.text.trim(),
@@ -81,6 +92,11 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
       final nicknameError = nicknameProblem(nickname);
       if (nicknameError != null) {
         _notice(nicknameError);
+        return;
+      }
+      // 메일을 보낸 뒤 입력칸을 개인 메일로 바꾼 경우도 막는다
+      if (!_isSchoolEmail(_emailController.text)) {
+        _notice(_schoolEmailOnly);
         return;
       }
       data.email = _emailController.text.trim();
@@ -143,6 +159,16 @@ class _SignUpStudentVerifyScreenState extends State<SignUpStudentVerifyScreen> {
           email: email,
           password: _passwordController.text,
         );
+      } on EmailInUseFailure catch (failure) {
+        // 가입을 끝내지 못한 본인 계정이면 그 계정으로 이어서 가입한다
+        final resumed = await resumeUnfinishedSignUp(
+          email: email,
+          password: _passwordController.text,
+        );
+        if (!resumed) {
+          _notice(failure.message);
+          return;
+        }
       } on AuthFailure catch (failure) {
         _notice(failure.message);
         return;
