@@ -51,11 +51,11 @@ class CurrentMember {
   }
 
   static bool get isEmployee => _user?.isEmployee ?? false;
+  static bool get isVerified => _user?.isVerified ?? false;
   static String get type => isEmployee ? '취업자' : '재학생';
 
   // 후기·답변은 인증된 취업자(인증 선배)만 쓸 수 있다.
-  static bool get canWriteSeniorPost =>
-      isEmployee && (_user?.isVerified ?? false);
+  static bool get canWriteSeniorPost => isEmployee && isVerified;
 
   // 회원 정보의 학교 이름 그대로 (예: 대림대학교)
   static String get schoolFullName => _user?.school ?? '';

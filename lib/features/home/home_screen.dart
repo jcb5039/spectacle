@@ -6,6 +6,7 @@ import '../../common/theme/app_text_styles.dart';
 import '../../common/widgets/app_dialog.dart';
 import '../../common/widgets/review_card.dart';
 import '../../common/widgets/verified_badge.dart';
+import '../auth/widgets/restricted_dialog.dart';
 import '../../models/review.dart';
 import '../../services/review_service.dart';
 import '../review/review_detail_screen.dart';
@@ -51,7 +52,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _WriteButton(
                   onTap: () {
                     // 후기는 인증된 선배(취업자)만 쓸 수 있다.
-                    // 디자인에 없는 상황이라 임시로 알림 띠를 띄운다 (A의 미인증 안내 팝업 연결은 나중에)
+                    // 인증 전이면 미인증 안내 팝업(A, 디자인: Restricted)
+                    if (!CurrentMember.isVerified) {
+                      showRestrictedDialog(context);
+                      return;
+                    }
+                    // 인증된 재학생: 디자인에 없는 상황이라 임시로 알림 띠를 띄운다
                     if (!CurrentMember.canWriteSeniorPost) {
                       showBlackToast(
                         context,
