@@ -299,7 +299,10 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
                           ),
                           const SizedBox(height: 7),
                           Text(
-                            '${r.companyAndJob} · ${r.authorDepartment}',
+                            [
+                              r.companyAndJob,
+                              r.authorDepartment,
+                            ].where((t) => t.isNotEmpty).join(' · '),
                             style: const TextStyle(
                               fontSize: 9,
                               height: 1.5,

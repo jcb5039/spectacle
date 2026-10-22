@@ -482,9 +482,8 @@ class _QaDetailScreenState extends State<QaDetailScreen> {
   );
 }
 
-// 성을 뺀 이름 첫 글자 (디자인: 이서연 → 서, 김민지 → 민)
-String _avatarLetter(String name) =>
-    name.length > 1 ? name.substring(1, 2) : name;
+// 닉네임 첫 글자 (MY 화면과 같은 규칙. 예: 윤혁주 → 윤, TestSenior → T)
+String _avatarLetter(String name) => name.isEmpty ? '' : name.characters.first;
 
 // 선배 답변 한 칸: 작성자, 내용, 도움돼요
 class _AnswerCard extends StatelessWidget {
