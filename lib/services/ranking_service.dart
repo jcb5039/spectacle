@@ -1,4 +1,9 @@
 // [A] 기능: 랭킹 계산(좋아요 많은 글, 활동 많은 선배), MY의 내가 쓴 글·질문 불러오기
+import '../models/answer.dart';
+import '../models/question.dart';
+import '../models/review.dart';
+import 'qa_service.dart' show QaService;
+import 'review_service.dart' show Likes, ReviewService;
 
 // 아래 요약 모양들은 랭킹·MY 화면에 보여줄 것만 담는다.
 // B가 models/review.dart, question.dart를 만들면 Firebase 연결 때 그 데이터로 채운다.
@@ -81,10 +86,10 @@ class MyActivityStats {
   final int givenLikeCount;
 }
 
-// Firebase 연결 전까지는 FakeRankingService(디자인 예시 데이터)가 동작한다.
-// 연결할 때 Firestore reviews·questions·likes를 읽는 구현을 만들어 instance만 바꾸면 된다.
+// AppRankingService: B가 불러온 실제 후기·질문·답변·좋아요(Firestore)로 계산한다.
+// FakeRankingService: 디자인 예시 데이터 (Firebase 연결 전 화면 확인용으로 남겨둔다)
 abstract class RankingService {
-  static RankingService instance = FakeRankingService();
+  static RankingService instance = AppRankingService();
 
   // 좋아요 수가 많은 후기 순서
   Future<List<RankedPost>> topHelpfulPosts({int limit = 10});
@@ -231,4 +236,126 @@ class FakeRankingService implements RankingService {
       ),
     ];
   }
+}
+
+// 실제 데이터로 계산하는 랭킹·MY. B의 ReviewService·QaService·Likes가 불러온 것을 읽기만 한다.
+// (예시 글을 보여주는 설정이면 B 화면과 똑같이 예시 글도 포함된다)
+class AppRankingService implements RankingService {
+  // 모든 답변 (질문마다 모은다)
+  List<Answer> get _allAnswers => [
+    for (final question in QaService.allQuestions)
+      ...QaService.answersOf(question.id),
+  ];
+
+  List<Question> _questionsBy(String userId) =>
+      QaService.allQuestions.where((q) => q.authorId == userId).toList();
+
+  List<Answer> _answersBy(String userId) =>
+      _allAnswers.where((a) => a.authorId == userId).toList();
+
+  ReviewSummary _reviewSummary(Review review) => ReviewSummary(
+    reviewId: review.id,
+    title: review.title,
+    subtitle: [
+      review.company,
+      review.job,
+      review.authorDepartment,
+    ].where((text) => text.isNotEmpty).join(' · '),
+  );
+
+  QuestionSummary _questionSummary(Question question) => QuestionSummary(
+    questionId: question.id,
+    title: question.title,
+    answerCount: QaService.answerCountOf(question.id),
+    createdAt: question.createdAt,
+  );
+
+  @override
+  Future<List<RankedPost>> topHelpfulPosts({int limit = 10}) async {
+    final reviews = ReviewService.allReviews.toList()
+      ..sort(
+        (a, b) =>
+            ReviewService.likeCountOf(b)
+                .compareTo(ReviewService.likeCountOf(a)),
+      );
+    return [
+      for (final review in reviews.take(limit))
+        RankedPost(
+          reviewId: review.id,
+          title: review.title,
+          likeCount: ReviewService.likeCountOf(review),
+        ),
+    ];
+  }
+
+  @override
+  Future<List<RankedSenior>> topActiveSeniors({int limit = 10}) async {
+    // 선배(작성자)마다 답변을 모은다
+    final byAuthor = <String, List<Answer>>{};
+    for (final answer in _allAnswers) {
+      byAuthor.putIfAbsent(answer.authorId, () => []).add(answer);
+    }
+    final seniors = [
+      for (final answers in byAuthor.values)
+        RankedSenior(
+          userId: answers.first.authorId,
+          name: answers.last.authorName,
+          company: answers.last.authorCompany,
+          jobTitle: answers.last.authorJob,
+          answerCount: answers.length,
+        ),
+    ]..sort((a, b) => b.answerCount.compareTo(a.answerCount));
+    return seniors.take(limit).toList();
+  }
+
+  @override
+  Future<MyActivityStats> myStats(String userId) async {
+    final reviews = ReviewService.reviewsByAuthor(userId);
+    final answers = _answersBy(userId);
+    final questions = _questionsBy(userId);
+    return MyActivityStats(
+      // 취업자: 작성한 후기, 받은 도움돼요(내 후기 + 내 답변), 답변
+      reviewCount: reviews.length,
+      receivedLikeCount:
+          reviews.fold(0, (sum, r) => sum + ReviewService.likeCountOf(r)) +
+          answers.fold(0, (sum, a) => sum + QaService.likeCountOf(a)),
+      answerCount: answers.length,
+      // 재학생: 작성한 질문, 받은 답변(내 질문에 달린 답변), 누른 도움돼요(후기 + 답변)
+      questionCount: questions.length,
+      receivedAnswerCount: questions.fold(
+        0,
+        (sum, q) => sum + QaService.answerCountOf(q.id),
+      ),
+      givenLikeCount:
+          ReviewService.allReviews.where((r) => Likes.isLiked(r.id)).length +
+          _allAnswers.where((a) => Likes.isLiked(a.id)).length,
+    );
+  }
+
+  @override
+  Future<List<ReviewSummary>> myReviews(String userId) async => [
+    for (final review in ReviewService.reviewsByAuthor(userId))
+      _reviewSummary(review),
+  ];
+
+  // 내가 답변한 질문 (질문 하나에 여러 번 답변해도 한 번만)
+  @override
+  Future<List<QuestionSummary>> myAnsweredQuestions(String userId) async {
+    final answeredIds = _answersBy(userId).map((a) => a.questionId).toSet();
+    return [
+      for (final question in QaService.allQuestions)
+        if (answeredIds.contains(question.id)) _questionSummary(question),
+    ];
+  }
+
+  @override
+  Future<List<QuestionSummary>> myQuestions(String userId) async => [
+    for (final question in _questionsBy(userId)) _questionSummary(question),
+  ];
+
+  @override
+  Future<List<ReviewSummary>> likedReviews(String userId) async => [
+    for (final review in ReviewService.allReviews)
+      if (Likes.isLiked(review.id)) _reviewSummary(review),
+  ];
 }

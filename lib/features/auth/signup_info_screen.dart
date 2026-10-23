@@ -24,12 +24,16 @@ class _SignUpInfoScreenState extends State<SignUpInfoScreen> {
   late final _companyController = TextEditingController(
     text: widget.data.company,
   );
+  late final _jobTitleController = TextEditingController(
+    text: widget.data.jobTitle,
+  );
 
   SignUpData get _data => widget.data;
 
   @override
   void dispose() {
     _companyController.dispose();
+    _jobTitleController.dispose();
     super.dispose();
   }
 
@@ -83,6 +87,7 @@ class _SignUpInfoScreenState extends State<SignUpInfoScreen> {
 
   void _next() {
     _data.company = _companyController.text.trim();
+    _data.jobTitle = _jobTitleController.text.trim();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -143,6 +148,12 @@ class _SignUpInfoScreenState extends State<SignUpInfoScreen> {
             label: '회사명',
             hint: '현재 회사명을 입력해주세요',
             controller: _companyController,
+          ),
+          // 디자인에 없어서 회사명 칸과 같은 모양으로 추가
+          UnderlineTextField(
+            label: '직무',
+            hint: '현재 직무를 입력해주세요',
+            controller: _jobTitleController,
           ),
         ],
       ],
