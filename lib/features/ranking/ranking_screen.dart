@@ -207,7 +207,11 @@ class _RankedSeniorRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${senior.company} · ${senior.jobTitle}',
+                    // 비어 있는 값은 빼고 잇는다
+                    [
+                      senior.company,
+                      senior.jobTitle,
+                    ].where((t) => t.isNotEmpty).join(' · '),
                     style: const TextStyle(
                       color: AuthColors.gray8E,
                       fontSize: 9,
