@@ -389,11 +389,27 @@ class ReviewService {
         sampleReviews.firstWhere((r) => r.id == id),
   ];
 
-  // 배너 "학과별 선배 노트"에 묶인 후기 (디자인 순서)
-  static List<Review> get bannerReviews => [
-    for (final id in ['r1', 'r2', 'r3', 'r4', 'r5', 'r7', 'r8', 'r9'])
-      sampleReviews.firstWhere((r) => r.id == id),
-  ];
+  // 배너 "학과별 선배 노트"에 묶인 후기
+  // 예시를 켜면 디자인 순서 그대로, 끄면 서버 후기 중 학과마다 좋아요가 가장 많은 후기 (최대 8개)
+  static List<Review> get bannerReviews {
+    if (showSampleData) {
+      return [
+        for (final id in ['r1', 'r2', 'r3', 'r4', 'r5', 'r7', 'r8', 'r9'])
+          sampleReviews.firstWhere((r) => r.id == id),
+      ];
+    }
+    final best = <String, Review>{};
+    for (final r in _serverReviews) {
+      final current = best[r.authorDepartment];
+      if (current == null || likeCountOf(r) > likeCountOf(current)) {
+        best[r.authorDepartment] = r;
+      }
+    }
+    return (best.values.toList()
+          ..sort((a, b) => likeCountOf(b).compareTo(likeCountOf(a))))
+        .take(8)
+        .toList();
+  }
 
   static List<Review> reviewsByAuthor(String authorId) =>
       allReviews.where((r) => r.authorId == authorId).toList();

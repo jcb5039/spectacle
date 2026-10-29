@@ -480,10 +480,12 @@ class _DiscoverViewState extends State<_DiscoverView> {
       children: [
         const SizedBox(height: 17),
         _buildJobTabs(),
-        BannerSlider(
-          onTap: () => Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const BannerScreen())),
-        ),
+        // 배너에 묶을 후기가 없으면 배너를 숨긴다
+        if (ReviewService.bannerReviews.isNotEmpty)
+          BannerSlider(
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const BannerScreen())),
+          ),
         _buildFeedHeading(),
         _buildFeedGrid(),
       ],
