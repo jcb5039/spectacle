@@ -256,10 +256,16 @@ class _ReviewDetailScreenState extends State<ReviewDetailScreen> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${review.authorSchool} ${review.authorDepartment} · '
-                    '${review.authorAdmissionYear}학번 · '
-                    '${review.authorGraduationYear}년 졸업 · '
-                    '${review.company} ${review.job}',
+                    // 비어 있는 값은 빼고 잇는다 (예: 회사·직무가 없으면 끝에 · 가 남지 않게)
+                    [
+                      '${review.authorSchool} ${review.authorDepartment}'
+                          .trim(),
+                      if (review.authorAdmissionYear.isNotEmpty)
+                        '${review.authorAdmissionYear}학번',
+                      if (review.authorGraduationYear.isNotEmpty)
+                        '${review.authorGraduationYear}년 졸업',
+                      '${review.company} ${review.job}'.trim(),
+                    ].where((t) => t.isNotEmpty).join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
