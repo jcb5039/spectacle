@@ -2,8 +2,8 @@
 import '../models/answer.dart';
 import '../models/question.dart';
 import '../models/review.dart';
-import 'qa_service.dart';
-import 'review_service.dart';
+import 'qa_service.dart' show QaService;
+import 'review_service.dart' show Likes, ReviewService;
 
 // 아래 요약 모양들은 랭킹·MY 화면에 보여줄 것만 담는다.
 // B가 models/review.dart, question.dart를 만들면 Firebase 연결 때 그 데이터로 채운다.
@@ -86,10 +86,10 @@ class MyActivityStats {
   final int givenLikeCount;
 }
 
-// Firebase 연결 전까지는 FakeRankingService(디자인 예시 데이터)가 동작한다.
-// 연결할 때 Firestore reviews·questions·likes를 읽는 구현을 만들어 instance만 바꾸면 된다.
+// AppRankingService: B가 불러온 실제 후기·질문·답변·좋아요(Firestore)로 계산한다.
+// FakeRankingService: 디자인 예시 데이터 (Firebase 연결 전 화면 확인용으로 남겨둔다)
 abstract class RankingService {
-  static RankingService instance = FakeRankingService();
+  static RankingService instance = AppRankingService();
 
   // 좋아요 수가 많은 후기 순서
   Future<List<RankedPost>> topHelpfulPosts({int limit = 10});
@@ -238,53 +238,71 @@ class FakeRankingService implements RankingService {
   }
 }
 
-// 서버(Firestore)의 후기·질문·답변·좋아요로 랭킹과 MY 목록을 계산한다.
-// 홈·Q&A와 같은 데이터(앱이 실시간으로 받아 둔 목록)를 앱 안에서 세고 정렬한다.
-class ServerRankingService implements RankingService {
-  // 아직 안 켜졌으면 서버 글 받아오기를 시작한다 (여러 번 불러도 한 번만 연결)
-  void _start() {
-    ReviewService.start();
-    QaService.start();
-  }
+// 실제 데이터로 계산하는 랭킹·MY. B의 ReviewService·QaService·Likes가 불러온 것을 읽기만 한다.
+// (예시 글을 보여주는 설정이면 B 화면과 똑같이 예시 글도 포함된다)
+class AppRankingService implements RankingService {
+  // 모든 답변 (질문마다 모은다)
+  List<Answer> get _allAnswers => [
+    for (final question in QaService.allQuestions)
+      ...QaService.answersOf(question.id),
+  ];
+
+  List<Question> _questionsBy(String userId) =>
+      QaService.allQuestions.where((q) => q.authorId == userId).toList();
+
+  List<Answer> _answersBy(String userId) =>
+      _allAnswers.where((a) => a.authorId == userId).toList();
+
+  ReviewSummary _reviewSummary(Review review) => ReviewSummary(
+    reviewId: review.id,
+    title: review.title,
+    subtitle: [
+      review.company,
+      review.job,
+      review.authorDepartment,
+    ].where((text) => text.isNotEmpty).join(' · '),
+  );
+
+  QuestionSummary _questionSummary(Question question) => QuestionSummary(
+    questionId: question.id,
+    title: question.title,
+    answerCount: QaService.answerCountOf(question.id),
+    createdAt: question.createdAt,
+  );
 
   @override
   Future<List<RankedPost>> topHelpfulPosts({int limit = 10}) async {
-    _start();
-    final reviews = [...ReviewService.allReviews]
-      ..sort((a, b) {
-        final byLikes = ReviewService.likeCountOf(
-          b,
-        ).compareTo(ReviewService.likeCountOf(a));
-        return byLikes != 0 ? byLikes : b.createdAt.compareTo(a.createdAt);
-      });
+    final reviews = ReviewService.allReviews.toList()
+      ..sort(
+        (a, b) =>
+            ReviewService.likeCountOf(b)
+                .compareTo(ReviewService.likeCountOf(a)),
+      );
     return [
-      for (final r in reviews.take(limit))
+      for (final review in reviews.take(limit))
         RankedPost(
-          reviewId: r.id,
-          title: r.title,
-          likeCount: ReviewService.likeCountOf(r),
+          reviewId: review.id,
+          title: review.title,
+          likeCount: ReviewService.likeCountOf(review),
         ),
     ];
   }
 
   @override
   Future<List<RankedSenior>> topActiveSeniors({int limit = 10}) async {
-    _start();
-    // 답변은 인증 선배만 쓸 수 있어서, 답변을 쓴 사람 = 인증 선배
+    // 선배(작성자)마다 답변을 모은다
     final byAuthor = <String, List<Answer>>{};
-    for (final a in QaService.allAnswers) {
-      if (a.authorId.isEmpty) continue;
-      byAuthor.putIfAbsent(a.authorId, () => []).add(a);
+    for (final answer in _allAnswers) {
+      byAuthor.putIfAbsent(answer.authorId, () => []).add(answer);
     }
     final seniors = [
-      for (final entry in byAuthor.entries)
+      for (final answers in byAuthor.values)
         RankedSenior(
-          userId: entry.key,
-          // 답변은 오래된 순이라 마지막 답변의 정보가 가장 최신
-          name: entry.value.last.authorName,
-          company: entry.value.last.authorCompany,
-          jobTitle: entry.value.last.authorJob,
-          answerCount: entry.value.length,
+          userId: answers.first.authorId,
+          name: answers.last.authorName,
+          company: answers.last.authorCompany,
+          jobTitle: answers.last.authorJob,
+          answerCount: answers.length,
         ),
     ]..sort((a, b) => b.answerCount.compareTo(a.answerCount));
     return seniors.take(limit).toList();
@@ -292,80 +310,52 @@ class ServerRankingService implements RankingService {
 
   @override
   Future<MyActivityStats> myStats(String userId) async {
-    _start();
     final reviews = ReviewService.reviewsByAuthor(userId);
-    final answers = QaService.answersByAuthor(userId);
+    final answers = _answersBy(userId);
     final questions = _questionsBy(userId);
     return MyActivityStats(
+      // 취업자: 작성한 후기, 받은 도움돼요(내 후기 + 내 답변), 답변
       reviewCount: reviews.length,
-      // 내 후기와 내 답변이 받은 좋아요를 더한다
       receivedLikeCount:
           reviews.fold(0, (sum, r) => sum + ReviewService.likeCountOf(r)) +
           answers.fold(0, (sum, a) => sum + QaService.likeCountOf(a)),
       answerCount: answers.length,
+      // 재학생: 작성한 질문, 받은 답변(내 질문에 달린 답변), 누른 도움돼요(후기 + 답변)
       questionCount: questions.length,
       receivedAnswerCount: questions.fold(
         0,
         (sum, q) => sum + QaService.answerCountOf(q.id),
       ),
-      givenLikeCount: Likes.likedCount,
+      givenLikeCount:
+          ReviewService.allReviews.where((r) => Likes.isLiked(r.id)).length +
+          _allAnswers.where((a) => Likes.isLiked(a.id)).length,
     );
   }
 
   @override
-  Future<List<ReviewSummary>> myReviews(String userId) async {
-    _start();
-    final reviews = ReviewService.reviewsByAuthor(userId)
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return reviews.map(_reviewSummary).toList();
-  }
+  Future<List<ReviewSummary>> myReviews(String userId) async => [
+    for (final review in ReviewService.reviewsByAuthor(userId))
+      _reviewSummary(review),
+  ];
 
+  // 내가 답변한 질문 (질문 하나에 여러 번 답변해도 한 번만)
   @override
   Future<List<QuestionSummary>> myAnsweredQuestions(String userId) async {
-    _start();
-    final questionIds = {
-      for (final a in QaService.answersByAuthor(userId)) a.questionId,
-    };
-    return QaService.allQuestions
-        .where((q) => questionIds.contains(q.id))
-        .map(_questionSummary)
-        .toList();
+    final answeredIds = _answersBy(userId).map((a) => a.questionId).toSet();
+    return [
+      for (final question in QaService.allQuestions)
+        if (answeredIds.contains(question.id)) _questionSummary(question),
+    ];
   }
 
   @override
-  Future<List<QuestionSummary>> myQuestions(String userId) async {
-    _start();
-    return _questionsBy(userId).map(_questionSummary).toList();
-  }
+  Future<List<QuestionSummary>> myQuestions(String userId) async => [
+    for (final question in _questionsBy(userId)) _questionSummary(question),
+  ];
 
   @override
-  Future<List<ReviewSummary>> likedReviews(String userId) async {
-    _start();
-    return ReviewService.allReviews
-        .where((r) => Likes.isLiked(r.id))
-        .map(_reviewSummary)
-        .toList();
-  }
-
-  // 질문 목록은 최신순
-  List<Question> _questionsBy(String userId) =>
-      QaService.allQuestions.where((q) => q.authorId == userId).toList();
-
-  // 예: 에어웨이브 · 객실승무원 · 항공서비스 (비어 있는 값은 뺀다)
-  ReviewSummary _reviewSummary(Review r) => ReviewSummary(
-    reviewId: r.id,
-    title: r.title,
-    subtitle: [
-      r.company,
-      r.job,
-      r.authorDepartment,
-    ].where((t) => t.isNotEmpty).join(' · '),
-  );
-
-  QuestionSummary _questionSummary(Question q) => QuestionSummary(
-    questionId: q.id,
-    title: q.title,
-    answerCount: QaService.answerCountOf(q.id),
-    createdAt: q.createdAt,
-  );
+  Future<List<ReviewSummary>> likedReviews(String userId) async => [
+    for (final review in ReviewService.allReviews)
+      if (Likes.isLiked(review.id)) _reviewSummary(review),
+  ];
 }

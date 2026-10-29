@@ -1,9 +1,9 @@
 // [A] 06 랭킹·MY > 랭킹 화면: 도움된 글 / 활동 많은 선배 탭 (디자인: Ranking, Ranking-Seniors)
 import 'package:flutter/material.dart';
 
-import '../../services/qa_service.dart';
+import '../../services/qa_service.dart' show QaService;
 import '../../services/ranking_service.dart';
-import '../../services/review_service.dart';
+import '../../services/review_service.dart' show ReviewService;
 import '../auth/widgets/auth_widgets.dart';
 import '../my/widgets/my_widgets.dart';
 
@@ -24,7 +24,9 @@ class _RankingScreenState extends State<RankingScreen> {
   @override
   void initState() {
     super.initState();
-    // 후기·질문·답변·좋아요가 바뀌면 랭킹을 다시 계산한다
+    // 후기·답변·좋아요는 B의 데이터라 서버에서 늦게 도착하거나 바뀌면 다시 계산한다
+    ReviewService.start();
+    QaService.start();
     ReviewService.changes.addListener(_reload);
     QaService.changes.addListener(_reload);
   }

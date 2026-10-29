@@ -11,6 +11,7 @@ class SignUpData {
   int? graduationYear;
   String? jobGroup;
   String? company;
+  String? jobTitle;
   String? email;
   String? nickname;
 
@@ -32,6 +33,7 @@ class SignUpData {
       graduationYear: graduationYear,
       jobGroup: isEmployee ? jobGroup : null,
       company: isEmployee ? company : null,
+      jobTitle: isEmployee ? jobTitle : null,
       nickname: nickname,
       verificationStatus: status,
       verificationMethod: method,

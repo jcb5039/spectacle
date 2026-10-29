@@ -8,11 +8,13 @@ import '../../services/auth_service.dart';
 import '../../services/photo_service.dart';
 import '../../services/qa_service.dart' show QaService;
 import '../../services/ranking_service.dart';
-import '../../services/review_service.dart';
+import '../../services/review_service.dart' show ReviewService;
 import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
 import '../auth/widgets/auth_widgets.dart';
+import '../qa/qa_detail_screen.dart' show openQaDetail;
 import 'info_edit_screen.dart';
+import 'my_activity_screen.dart';
 import 'spec_edit_screen.dart';
 import 'widgets/my_widgets.dart';
 
@@ -37,34 +39,47 @@ class _MyScreenState extends State<MyScreen> {
   void initState() {
     super.initState();
     _load();
-    // 후기·질문·답변·좋아요가 바뀌면 숫자와 목록을 다시 불러온다
-    ReviewService.changes.addListener(_loadActivity);
-    QaService.changes.addListener(_loadActivity);
+    // 숫자와 목록은 B의 후기·질문·답변·좋아요 데이터라
+    // 서버에서 늦게 도착하거나 바뀌면 다시 불러온다
+    ReviewService.start();
+    QaService.start();
+    ReviewService.changes.addListener(_reloadActivity);
+    QaService.changes.addListener(_reloadActivity);
   }
 
   @override
   void dispose() {
-    ReviewService.changes.removeListener(_loadActivity);
-    QaService.changes.removeListener(_loadActivity);
+    ReviewService.changes.removeListener(_reloadActivity);
+    QaService.changes.removeListener(_reloadActivity);
     super.dispose();
+  }
+
+  Future<void> _reloadActivity() async {
+    final user = _user;
+    if (user == null) return;
+    final ranking = RankingService.instance;
+    final stats = await ranking.myStats(_userId);
+    // 취업자: 내가 쓴 글 / 질문·답변, 재학생: 내 질문 / 좋아요 누른 후기
+    final reviews = user.isEmployee
+        ? await ranking.myReviews(_userId)
+        : await ranking.likedReviews(_userId);
+    final questions = user.isEmployee
+        ? await ranking.myAnsweredQuestions(_userId)
+        : await ranking.myQuestions(_userId);
+    if (!mounted) return;
+    setState(() {
+      _stats = stats;
+      _reviews = reviews;
+      _questions = questions;
+    });
   }
 
   Future<void> _load() async {
     final user = await UserService.instance.getUser(_userId);
     final photo = await PhotoService.instance.getProfilePhoto(_userId);
-    if (!mounted) return;
-    setState(() {
-      _user = user;
-      _photo = photo;
-    });
-    await _loadActivity();
-  }
-
-  // 활동 숫자와 목록만 다시 불러온다 (회원 정보·사진은 그대로)
-  Future<void> _loadActivity() async {
     final ranking = RankingService.instance;
     final stats = await ranking.myStats(_userId);
-    final isEmployee = _user?.isEmployee ?? true;
+    final isEmployee = user?.isEmployee ?? true;
     // 취업자: 내가 쓴 글 / 질문·답변, 재학생: 내 질문 / 좋아요 누른 후기
     final reviews = isEmployee
         ? await ranking.myReviews(_userId)
@@ -74,6 +89,8 @@ class _MyScreenState extends State<MyScreen> {
         : await ranking.myQuestions(_userId);
     if (!mounted) return;
     setState(() {
+      _user = user;
+      _photo = photo;
       _stats = stats;
       _reviews = reviews;
       _questions = questions;
@@ -124,10 +141,7 @@ class _MyScreenState extends State<MyScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                     child: _buildList(user),
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _buildLogout(),
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: _buildLogout()),
                 ],
               ),
       ),
@@ -381,18 +395,27 @@ class _MyScreenState extends State<MyScreen> {
 
   Widget _buildStats(AppUser user) {
     final stats = _stats;
+    // 재학생의 "작성한 질문"·"받은 답변"을 누르면 내 질문·답변 화면의 그 탭으로 (디자인: My-Student)
     final items = stats == null
-        ? <(String, String)>[]
+        ? <(String, String, VoidCallback?)>[]
         : user.isEmployee
         ? [
-            ('${stats.reviewCount}', '작성한 후기'),
-            ('${stats.receivedLikeCount}', '받은 도움돼요'),
-            ('${stats.answerCount}', '답변'),
+            ('${stats.reviewCount}', '작성한 후기', null),
+            ('${stats.receivedLikeCount}', '받은 도움돼요', null),
+            ('${stats.answerCount}', '답변', null),
           ]
         : [
-            ('${stats.questionCount}', '작성한 질문'),
-            ('${stats.receivedAnswerCount}', '받은 답변'),
-            ('${stats.givenLikeCount}', '누른 도움돼요'),
+            (
+              '${stats.questionCount}',
+              '작성한 질문',
+              () => _open(const MyActivityScreen(initialTab: 0)),
+            ),
+            (
+              '${stats.receivedAnswerCount}',
+              '받은 답변',
+              () => _open(const MyActivityScreen(initialTab: 1)),
+            ),
+            ('${stats.givenLikeCount}', '누른 도움돼요', null),
           ];
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 22),
@@ -407,34 +430,38 @@ class _MyScreenState extends State<MyScreen> {
           children: [
             for (var i = 0; i < items.length; i++)
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: i == 0
-                        ? null
-                        : const Border(
-                            left: BorderSide(color: AuthColors.lineEE),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: items[i].$3,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: i == 0
+                          ? null
+                          : const Border(
+                              left: BorderSide(color: AuthColors.lineEE),
+                            ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          items[i].$1,
+                          style: const TextStyle(
+                            color: AuthColors.black,
+                            fontFamily: 'Georgia',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
                           ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        items[i].$1,
-                        style: const TextStyle(
-                          color: AuthColors.black,
-                          fontFamily: 'Georgia',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        items[i].$2,
-                        style: const TextStyle(
-                          color: AuthColors.gray8E,
-                          fontSize: 9,
+                        const SizedBox(height: 5),
+                        Text(
+                          items[i].$2,
+                          style: const TextStyle(
+                            color: AuthColors.gray8E,
+                            fontSize: 9,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -475,6 +502,13 @@ class _MyScreenState extends State<MyScreen> {
     );
   }
 
+  // 목록의 질문을 B의 Q&A 상세 화면으로 연다 (취업자의 가짜 예시 질문은 찾지 못해 열리지 않는다)
+  void _openQuestion(String questionId) {
+    final matches = QaService.allQuestions.where((q) => q.id == questionId);
+    if (matches.isEmpty) return;
+    openQaDetail(context, matches.first);
+  }
+
   Widget _buildList(AppUser user) {
     // 취업자: 0=내가 쓴 글(후기), 1=질문·답변 / 재학생: 0=내 질문, 1=좋아요 누른 후기
     final showReviews = user.isEmployee ? _tabIndex == 0 : _tabIndex == 1;
@@ -503,8 +537,7 @@ class _MyScreenState extends State<MyScreen> {
                 ? '선배 답변 ${question.answerCount} · ${timeAgo(question.createdAt)}'
                 : '답변을 기다리고 있어요 · ${timeAgo(question.createdAt)}',
             verticalPadding: 15,
-            // TODO: B의 Q&A 상세 화면(qa_detail_screen)이 생기면 연결
-            onTap: () {},
+            onTap: () => _openQuestion(question.questionId),
           ),
       ],
     );

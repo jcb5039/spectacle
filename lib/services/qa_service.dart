@@ -133,12 +133,6 @@ class QaService {
     ..._serverAnswers,
   ].where((a) => a.questionId == questionId).toList();
 
-  // 모든 답변 (랭킹의 활동 많은 선배 계산)
-  static List<Answer> get allAnswers => [
-    if (showSampleData) ..._sampleAnswers,
-    ..._serverAnswers,
-  ];
-
   // 선배 프로필의 답변 수: 그 선배가 쓴 답변 (작성자 id가 없으면 0)
   static List<Answer> answersByAuthor(String authorId) => authorId.isEmpty
       ? []
