@@ -51,11 +51,13 @@ class CurrentMember {
   }
 
   static bool get isEmployee => _user?.isEmployee ?? false;
-  static bool get isVerified => _user?.isVerified ?? false;
+  // 관리자: A의 회원 정보에서 콘솔로만 켠다. 모든 기능을 제한 없이 쓴다
+  static bool get isAdmin => _user?.isAdmin ?? false;
+  static bool get isVerified => isAdmin || (_user?.isVerified ?? false);
   static String get type => isEmployee ? '취업자' : '재학생';
 
-  // 후기·답변은 인증된 취업자(인증 선배)만 쓸 수 있다.
-  static bool get canWriteSeniorPost => isEmployee && isVerified;
+  // 후기·답변은 인증된 취업자(인증 선배)만 쓸 수 있다. 관리자는 유형·인증과 상관없이 쓸 수 있다
+  static bool get canWriteSeniorPost => isAdmin || (isEmployee && isVerified);
 
   // 회원 정보의 학교 이름 그대로 (예: 대림대학교)
   static String get schoolFullName => _user?.school ?? '';
