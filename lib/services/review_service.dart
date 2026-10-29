@@ -114,6 +114,9 @@ class Likes {
   static bool isLiked(String targetId) =>
       _serverIds.contains(targetId) || _localIds.contains(targetId);
 
+  // 내가 누른 좋아요 수 (MY 화면 숫자)
+  static int get likedCount => _serverIds.length + _localIds.length;
+
   // collection: 'reviews' 또는 'answers'
   // 서버 글은 좋아요 기록과 글의 likeCount를 한 번에 바꾼다.
   static Future<void> toggle({

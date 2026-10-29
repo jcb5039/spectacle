@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../services/photo_service.dart';
+import '../../services/qa_service.dart' show QaService;
 import '../../services/ranking_service.dart';
+import '../../services/review_service.dart';
 import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
 import '../auth/widgets/auth_widgets.dart';
@@ -35,14 +37,34 @@ class _MyScreenState extends State<MyScreen> {
   void initState() {
     super.initState();
     _load();
+    // 후기·질문·답변·좋아요가 바뀌면 숫자와 목록을 다시 불러온다
+    ReviewService.changes.addListener(_loadActivity);
+    QaService.changes.addListener(_loadActivity);
+  }
+
+  @override
+  void dispose() {
+    ReviewService.changes.removeListener(_loadActivity);
+    QaService.changes.removeListener(_loadActivity);
+    super.dispose();
   }
 
   Future<void> _load() async {
     final user = await UserService.instance.getUser(_userId);
     final photo = await PhotoService.instance.getProfilePhoto(_userId);
+    if (!mounted) return;
+    setState(() {
+      _user = user;
+      _photo = photo;
+    });
+    await _loadActivity();
+  }
+
+  // 활동 숫자와 목록만 다시 불러온다 (회원 정보·사진은 그대로)
+  Future<void> _loadActivity() async {
     final ranking = RankingService.instance;
     final stats = await ranking.myStats(_userId);
-    final isEmployee = user?.isEmployee ?? true;
+    final isEmployee = _user?.isEmployee ?? true;
     // 취업자: 내가 쓴 글 / 질문·답변, 재학생: 내 질문 / 좋아요 누른 후기
     final reviews = isEmployee
         ? await ranking.myReviews(_userId)
@@ -52,8 +74,6 @@ class _MyScreenState extends State<MyScreen> {
         : await ranking.myQuestions(_userId);
     if (!mounted) return;
     setState(() {
-      _user = user;
-      _photo = photo;
       _stats = stats;
       _reviews = reviews;
       _questions = questions;

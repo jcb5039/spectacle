@@ -6,16 +6,18 @@ import 'app.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/photo_service.dart';
+import 'services/ranking_service.dart';
 import 'services/user_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // 랭킹·내 글(RankingService)은 B의 후기·질문이 서버에 올라간 뒤 바꾼다
   AuthService.instance = FirebaseAuthService();
   UserService.instance = FirestoreUserService();
   PhotoService.instance = FirebasePhotoService();
+  // 랭킹·MY 숫자와 목록: 서버 후기·질문·답변·좋아요로 계산
+  RankingService.instance = ServerRankingService();
 
   runApp(const SpectacleApp());
 }
