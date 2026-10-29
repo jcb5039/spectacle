@@ -69,7 +69,8 @@ class NotificationsScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
                 children: [
-                  for (final item in _sampleNotifications) _buildItem(context, item),
+                  for (final item in _sampleNotifications)
+                    _buildItem(context, item),
                 ],
               ),
             ),
@@ -122,20 +123,18 @@ class NotificationsScreen extends StatelessWidget {
   }
 
   Widget _buildItem(BuildContext context, _NotificationItem item) {
+    // 후기 알림은 후기 상세로, 답변 알림은 Q&A 상세로 간다.
+    // 연결된 글이 지금 목록에 없으면(예시 데이터를 끈 경우) 눌러도 아무것도 하지 않는다.
+    final review = item.reviewId == null
+        ? null
+        : ReviewService.findById(item.reviewId!);
+    final question = QaService.findQuestion(item.questionId);
     return InkWell(
-      // 후기 알림은 후기 상세로, 답변 알림은 Q&A 상세로 간다.
-      onTap: () {
-        final reviewId = item.reviewId;
-        if (reviewId != null) {
-          openReviewDetail(
-            context,
-            ReviewService.sampleReviews.firstWhere((r) => r.id == reviewId),
-          );
-          return;
-        }
-        final question = QaService.findQuestion(item.questionId);
-        if (question != null) openQaDetail(context, question);
-      },
+      onTap: review != null
+          ? () => openReviewDetail(context, review)
+          : question != null
+          ? () => openQaDetail(context, question)
+          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: const BoxDecoration(
