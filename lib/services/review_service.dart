@@ -13,7 +13,7 @@ import 'user_service.dart';
 
 // 디자인 예시 데이터(후기·질문·답변)를 서버 글과 함께 보여줄지.
 // 예시는 서버에 올리지 않고 앱 안에만 있다. 실제 서비스를 시작할 때 false로 바꾼다.
-const bool showSampleData = true;
+const bool showSampleData = false;
 
 // Firebase가 켜져 있고 로그인한 상태인지 (테스트·가짜 로그인에서는 앱 안에만 저장한다)
 bool get firebaseReady =>
