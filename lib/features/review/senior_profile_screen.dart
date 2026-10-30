@@ -28,7 +28,14 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final reviews = ReviewService.reviewsByAuthor(review.authorId);
-    final likeTotal = reviews.fold<int>(0, (sum, r) => sum + r.likeCount);
+    // 랭킹·MY와 같은 기준: 질문이 남아 있는 답변만 세고,
+    // 받은 도움돼요는 후기와 답변에 받은 것을 더한다
+    final answers = QaService.answersByAuthor(review.authorId)
+        .where((a) => QaService.findQuestion(a.questionId) != null)
+        .toList();
+    final likeTotal =
+        reviews.fold<int>(0, (sum, r) => sum + ReviewService.likeCountOf(r)) +
+        answers.fold<int>(0, (sum, a) => sum + QaService.likeCountOf(a));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -42,7 +49,7 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
                 padding: EdgeInsets.zero,
                 children: [
                   _buildProfile(),
-                  _buildStats(reviews.length, likeTotal),
+                  _buildStats(reviews.length, likeTotal, answers.length),
                   _buildAskButton(),
                   _buildTabs(),
                   if (_showReviews) _buildPosts(reviews),
@@ -138,7 +145,7 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
   }
 
   // 후기 수 / 받은 도움돼요 / 답변 수
-  Widget _buildStats(int reviewCount, int likeTotal) {
+  Widget _buildStats(int reviewCount, int likeTotal, int answerCount) {
     Widget stat(String number, String label, {bool leftLine = true}) {
       return Expanded(
         child: Container(
@@ -186,7 +193,7 @@ class _SeniorProfileScreenState extends State<SeniorProfileScreen> {
           stat('$reviewCount', '후기', leftLine: false),
           stat('$likeTotal', '받은 도움돼요'),
           // 이 선배가 Q&A에 남긴 답변 수 (답변 탭 목록은 디자인이 나오면 만든다)
-          stat('${QaService.answersByAuthor(review.authorId).length}', '답변'),
+          stat('$answerCount', '답변'),
         ],
       ),
     );
