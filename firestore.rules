@@ -38,12 +38,15 @@ service cloud.firestore {
     // 인증 상태·방법·날짜와 회원 유형은 본인이 바꿀 수 없다 (관리자가 Firebase 콘솔에서 승인)
     // 이메일은 로그인 계정이라 바꿀 수 없다.
     // 닉네임은 닉네임 명단(nicknames)에 본인 것으로 등록된 것만 쓸 수 있다
+    // 관리자 표시(isAdmin)는 콘솔에서만 켠다: 가입할 때 켤 수 없고, 앱에서 바꿀 수 없다
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && validNewStatus(request.resource.data)
+        && request.resource.data.get('isAdmin', false) == false
         && validNickname(request.resource.data.nickname)
         && ownsNicknameAfter(request.resource.data.nickname);
       allow update: if isOwner(userId)
+        && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
         && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['verificationStatus', 'verificationMethod', 'verifiedAt', 'memberType', 'email'])
         && (request.resource.data.get('nickname', null) == resource.data.get('nickname', null)
@@ -82,12 +85,14 @@ service cloud.firestore {
     // ───── 아래는 B: 후기·질문·답변·좋아요 ─────
 
     // 인증된 취업자(인증 선배)인지: 회원 정보(users)의 유형·인증 상태로 확인한다
+    // 관리자(isAdmin, 콘솔에서만 켬)는 유형·인증과 상관없이 허용한다
     function isVerifiedEmployee() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       return signedIn()
         && exists(path)
-        && get(path).data.memberType == 'employee'
-        && get(path).data.verificationStatus == 'verified';
+        && (get(path).data.get('isAdmin', false) == true
+          || (get(path).data.memberType == 'employee'
+            && get(path).data.verificationStatus == 'verified'));
     }
 
     // 새 글: 작성자는 본인이어야 하고, 좋아요 수는 0에서 시작한다

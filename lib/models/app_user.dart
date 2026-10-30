@@ -30,6 +30,7 @@ class AppUser {
     this.showCompany = true,
     this.allowQuestions = true,
     this.spec = const UserSpec(),
+    this.isAdmin = false,
   });
 
   final String id;
@@ -56,6 +57,8 @@ class AppUser {
   final bool showCompany;
   final bool allowQuestions;
   final UserSpec spec;
+  // 관리자: Firebase 콘솔에서만 켤 수 있다. 앱의 모든 기능을 인증·회원 유형과 상관없이 쓸 수 있다
+  final bool isAdmin;
 
   bool get isEmployee => memberType == MemberType.employee;
   bool get isVerified => verificationStatus == VerificationStatus.verified;
@@ -94,6 +97,7 @@ class AppUser {
       showCompany: showCompany ?? this.showCompany,
       allowQuestions: allowQuestions ?? this.allowQuestions,
       spec: spec ?? this.spec,
+      isAdmin: isAdmin,
     );
   }
 
@@ -118,6 +122,8 @@ class AppUser {
       'showCompany': showCompany,
       'allowQuestions': allowQuestions,
       'spec': spec.toMap(),
+      // 일반 회원은 저장하지 않고, 관리자만 표시를 그대로 남긴다 (덮어쓰기 저장에서 지워지지 않게)
+      if (isAdmin) 'isAdmin': true,
     };
   }
 
@@ -151,6 +157,7 @@ class AppUser {
       showCompany: map['showCompany'] as bool? ?? true,
       allowQuestions: map['allowQuestions'] as bool? ?? true,
       spec: spec == null ? const UserSpec() : UserSpec.fromMap(spec),
+      isAdmin: map['isAdmin'] as bool? ?? false,
     );
   }
 }
