@@ -126,6 +126,19 @@ class _FilterSheetState extends State<_FilterSheet> {
                         checked: _picked.contains(option),
                         onTap: () => _toggle(option),
                       ),
+                    // 고를 항목이 없을 때 (예: 아직 기업이 적힌 후기가 없음)
+                    if (widget.options.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text(
+                          '아직 고를 수 있는 항목이 없어요.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: AppColors.textSub,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
